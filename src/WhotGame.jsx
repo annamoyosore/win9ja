@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// SOUND (UNCHANGED)
+// SOUND
 // =========================
 function playSound(type) {
   const s = {
@@ -15,7 +15,7 @@ function playSound(type) {
 }
 
 // =========================
-// DECK (UNCHANGED)
+// DECK
 // =========================
 function createDeck() {
   const deck = [];
@@ -30,23 +30,16 @@ function createDeck() {
 }
 
 // =========================
-// FIXED RULE ENGINE (IMPORTANT)
+// VALID MOVE
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
-
-  // 🟢 REQUESTED SHAPE OVERRIDE
-  if (requestedShape) {
-    return card.shape === requestedShape || card.number === top.number;
-  }
-
-  // 🔥 CORE FIX:
-  // SAME NUMBER ACROSS SHAPES MUST ALWAYS MATCH
+  if (requestedShape) return card.shape === requestedShape;
   return card.number === top.number || card.shape === top.shape;
 }
 
 // =========================
-// CARD RENDER (RESTORED YOUR ORIGINAL STYLE)
+// CARD RENDER
 // =========================
 const cache = new Map();
 
@@ -59,7 +52,6 @@ function drawCard(card) {
   c.height = 130;
   const ctx = c.getContext("2d");
 
-  // original style preserved
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, 90, 130);
 
@@ -79,9 +71,7 @@ function drawCard(card) {
     ctx.fill();
   }
 
-  if (card.shape === "square") {
-    ctx.fillRect(cx - 14, cy - 14, 28, 28);
-  }
+  if (card.shape === "square") ctx.fillRect(cx - 14, cy - 14, 28, 28);
 
   if (card.shape === "triangle") {
     ctx.beginPath();
@@ -129,15 +119,10 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULES (UNCHANGED LOGIC, FIXED ONLY BEHAVIOR)
+  // RULE ENGINE
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
-
-    if (card.number === 1) {
-      copy.hold = opponent;
-      pushAlert("🟡 HOLD");
-    }
 
     if (card.number === 2) {
       copy.players[opponent].hand.push(copy.deck.pop());
@@ -159,7 +144,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // START (UNCHANGED UI)
+  // START GAME
   // =========================
   function startMatch() {
     const deck = createDeck();
@@ -173,7 +158,6 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      hold: null,
       requestedShape: null
     });
 
@@ -207,7 +191,7 @@ export default function WhotGame() {
     playSound("play");
     applyRules(card, copy, true);
 
-    addLog(`You played ${card.number} (${card.shape})`);
+    addLog(`You played ${card.number}`);
 
     copy.turn = "bot";
     setGame(copy);
@@ -216,7 +200,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // MARKET (UNCHANGED FLOW)
+  // MARKET
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -261,16 +245,25 @@ export default function WhotGame() {
     playSound("play");
     applyRules(card, copy, false);
 
-    addLog(`Bot played ${card.number} (${card.shape})`);
+    addLog(`Bot played ${card.number}`);
 
     copy.turn = "player";
     setGame(copy);
   }
 
+  // =========================
+  // LANDING PAGE (FIXED GREEN UI)
+  // =========================
   if (!game) {
     return (
-      <div style={{ padding: 20 }}>
-        <button onClick={startMatch}>Start Game</button>
+      <div style={styles.bg}>
+        <div style={styles.landing}>
+          <h1 style={{ color: "#fff" }}>WHOT GAME</h1>
+
+          <button onClick={startMatch} style={styles.startBtn}>
+            Start Game
+          </button>
+        </div>
       </div>
     );
   }
@@ -314,7 +307,7 @@ export default function WhotGame() {
 }
 
 // =========================
-// ORIGINAL STYLE PRESERVED
+// STYLES (GREEN LANDING RESTORED)
 // =========================
 const styles = {
   bg: {
@@ -324,12 +317,38 @@ const styles = {
     justifyContent: "center",
     alignItems: "center"
   },
+
+  landing: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+    gap: 20
+  },
+
+  startBtn: {
+    padding: "12px 18px",
+    background: "linear-gradient(45deg, #16a34a, #22c55e)",
+    color: "#fff",
+    fontWeight: "bold",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer"
+  },
+
   box: {
     width: 420,
     padding: 10,
     background: "#00000066",
     color: "#fff"
   },
+
   history: { fontSize: 12, marginBottom: 10 },
-  alertBox: { background: "#000000aa", color: "yellow", padding: 6 }
+
+  alertBox: {
+    background: "#000000aa",
+    color: "yellow",
+    padding: 6
+  }
 };
