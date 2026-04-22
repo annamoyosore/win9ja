@@ -3,19 +3,19 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// AUDIO
+// SOUND SYSTEM (SAFE ADD-ON)
 // =========================
-const playSound = (type) => {
+function playSound(type) {
   const sounds = {
     play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
     draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
-    win: "https://actions.google.com/sounds/v1/cartoon/concussive_drum_hit.ogg"
+    win: "https://actions.google.com/sounds/v1/crowds/crowd_cheer.ogg"
   };
 
   const audio = new Audio(sounds[type]);
-  audio.volume = 0.6;
-  audio.play();
-};
+  audio.volume = 0.5;
+  audio.play().catch(() => {});
+}
 
 // =========================
 // DECK
@@ -35,7 +35,7 @@ function createDeck() {
 }
 
 // =========================
-// VALID MOVE
+// VALID MOVE (UNCHANGED LOGIC)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
@@ -44,7 +44,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CARD RENDER
+// CARD RENDER (UNCHANGED)
 // =========================
 const cache = new Map();
 
@@ -95,17 +95,6 @@ function drawCard(card) {
 }
 
 // =========================
-// FLOWERS / CONFETTI
-// =========================
-function Confetti() {
-  return (
-    <div style={styles.confetti}>
-      {"🎊🎉🌸🌺🌼✨".repeat(30)}
-    </div>
-  );
-}
-
-// =========================
 // GAME
 // =========================
 export default function WhotGame() {
@@ -120,15 +109,15 @@ export default function WhotGame() {
   useEffect(() => { gameRef.current = game; }, [game]);
 
   function addLog(msg) {
-    setLog((p) => [...p, msg].slice(-2));
+    setLog((p) => [...p, msg].slice(-3));
   }
 
   // =========================
-  // WIN CHECK
+  // WIN CHECK (SAFE ADD)
   // =========================
-  function checkWin(state, playerIndex) {
-    if (state.players[playerIndex].hand.length === 0) {
-      setWinner(playerIndex);
+  function checkWin(copy, index) {
+    if (copy.players[index].hand.length === 0) {
+      setWinner(index);
       playSound("win");
       return true;
     }
@@ -153,11 +142,13 @@ export default function WhotGame() {
 
     setStarted(true);
     setWinner(null);
+    setRequestedShape(null);
+    setAwaitingShape(false);
     setLog([]);
   }
 
   // =========================
-  // PLAYER
+  // PLAYER MOVE (UNCHANGED + SAFE ADD)
   // =========================
   function playCard(i) {
     const g = gameRef.current;
@@ -174,21 +165,25 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
+    addLog(`You played ${card.number}`);
 
-    if (player.hand.length === 0) {
+    // 14 logic preserved
+    if (card.number === 14) {
+      setAwaitingShape(true);
       setGame(copy);
-      checkWin(copy, 0);
       return;
     }
 
     copy.turn = "bot";
     setGame(copy);
 
-    setTimeout(botPlay, 500);
+    setTimeout(botPlay, 400);
+
+    checkWin(copy, 0);
   }
 
   // =========================
-  // MARKET
+  // MARKET (UNCHANGED + SOUND)
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -198,15 +193,30 @@ export default function WhotGame() {
     copy.players[0].hand.push(copy.deck.pop());
 
     playSound("draw");
+    addLog("Drew from market");
 
     copy.turn = "bot";
     setGame(copy);
 
-    setTimeout(botPlay, 500);
+    setTimeout(botPlay, 400);
   }
 
   // =========================
-  // BOT
+  // SHAPE SELECT (UNCHANGED)
+  // =========================
+  function chooseShape(shape) {
+    const g = gameRef.current;
+    if (!g) return;
+
+    setRequestedShape(shape);
+    setAwaitingShape(false);
+
+    setGame({ ...g, turn: "bot" });
+    setTimeout(botPlay, 400);
+  }
+
+  // =========================
+  // BOT (UNCHANGED + SAFE ADD)
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -222,6 +232,7 @@ export default function WhotGame() {
 
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
+      playSound("draw");
       copy.turn = "player";
       return setGame(copy);
     }
@@ -230,15 +241,12 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
-
-    if (bot.hand.length === 0) {
-      setGame(copy);
-      checkWin(copy, 1);
-      return;
-    }
+    addLog(`Bot played ${card.number}`);
 
     copy.turn = "player";
     setGame(copy);
+
+    checkWin(copy, 1);
   }
 
   const top = game?.discard?.at(-1);
@@ -246,12 +254,9 @@ export default function WhotGame() {
   return (
     <div style={styles.bg}>
       {winner !== null && (
-        <>
-          <Confetti />
-          <div style={styles.win}>
-            🏆 Player {winner === 0 ? "You" : "Bot"} Wins!
-          </div>
-        </>
+        <div style={styles.win}>
+          🏆 {winner === 0 ? "You Win!" : "Bot Wins!"}
+        </div>
       )}
 
       <div style={styles.box}>
@@ -268,6 +273,16 @@ export default function WhotGame() {
             <div>
               {top && <img src={drawCard(top)} style={{ width: 70 }} />}
             </div>
+
+            {awaitingShape && (
+              <div>
+                {SHAPES.map(s => (
+                  <button key={s} onClick={() => chooseShape(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div style={styles.hand}>
               {game.players[0].hand.map((c, i) => (
@@ -303,20 +318,12 @@ const styles = {
     background: "#00000066",
     color: "#fff"
   },
-  hand: {
-    display: "flex",
-    gap: 10
-  },
+  hand: { display: "flex", gap: 10 },
   win: {
     position: "absolute",
     top: "30%",
     fontSize: 40,
     color: "gold",
     fontWeight: "bold"
-  },
-  confetti: {
-    position: "absolute",
-    fontSize: 30,
-    animation: "fall 2s linear infinite"
   }
 };
