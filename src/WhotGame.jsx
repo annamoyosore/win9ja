@@ -25,30 +25,39 @@ function shuffle(array) {
 }
 
 // =========================
-// VALID MOVE RULES
+// 🧠 UPDATED MATCH RULE (YOUR REQUEST)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
 
+  // WHOT (14) always valid
+  if (card.number === 14) return true;
+
+  // shape request mode (after 14)
   if (requestedShape) {
-    return card.shape === requestedShape || card.number === 14;
+    return card.shape === requestedShape;
   }
 
-  return (
-    card.shape === top.shape ||
-    card.number === top.number ||
-    card.number === 14
-  );
+  // =========================
+  // 🔥 FLEX MATCH SYSTEM (UPDATED)
+  // =========================
+  const sameShape = card.shape === top.shape;
+  const sameNumber = card.number === top.number;
+
+  // allows same number across ANY shape (your request)
+  const flexibleNumberMatch = card.number === top.number;
+
+  return sameShape || sameNumber || flexibleNumberMatch;
 }
 
 // =========================
-// CANVAS CARD (CACHED)
+// CANVAS CARD CACHE
 // =========================
-const cardCache = new Map();
+const cache = new Map();
 
 function drawCard(card) {
   const key = `${card.shape}_${card.number}`;
-  if (cardCache.has(key)) return cardCache.get(key);
+  if (cache.has(key)) return cache.get(key);
 
   const c = document.createElement("canvas");
   c.width = 90;
@@ -75,37 +84,36 @@ function drawCard(card) {
 
   ctx.fillStyle = "#e11d48";
 
-  switch (card.shape) {
-    case "circle":
-      ctx.beginPath();
-      ctx.arc(cx, cy, 16, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-
-    case "square":
-      ctx.fillRect(cx - 14, cy - 14, 28, 28);
-      break;
-
-    case "triangle":
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 16);
-      ctx.lineTo(cx - 16, cy + 16);
-      ctx.lineTo(cx + 16, cy + 16);
-      ctx.closePath();
-      ctx.fill();
-      break;
-
-    case "star":
-      ctx.font = "18px Arial";
-      ctx.fillText("★", cx - 8, cy + 6);
-      break;
-
-    case "cross":
-      ctx.fillRect(cx - 3, cy - 16, 6, 32);
-      ctx.fillRect(cx - 16, cy - 3, 32, 6);
-      break;
+  if (card.shape === "circle") {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.fill();
   }
 
+  if (card.shape === "square") {
+    ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  }
+
+  if (card.shape === "triangle") {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 16);
+    ctx.lineTo(cx - 16, cy + 16);
+    ctx.lineTo(cx + 16, cy + 16);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  if (card.shape === "star") {
+    ctx.font = "18px Arial";
+    ctx.fillText("★", cx - 8, cy + 6);
+  }
+
+  if (card.shape === "cross") {
+    ctx.fillRect(cx - 3, cy - 16, 6, 32);
+    ctx.fillRect(cx - 16, cy - 3, 32, 6);
+  }
+
+  // WHOT special
   if (card.number === 14) {
     ctx.strokeStyle = "#facc15";
     ctx.lineWidth = 4;
@@ -115,12 +123,12 @@ function drawCard(card) {
   }
 
   const img = c.toDataURL();
-  cardCache.set(key, img);
+  cache.set(key, img);
   return img;
 }
 
 // =========================
-// MAIN GAME
+// GAME
 // =========================
 export default function WhotGame() {
   const [game, setGame] = useState(null);
@@ -138,7 +146,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // START GAME
+  // START MATCH
   // =========================
   function startMatch() {
     const deck = createDeck();
@@ -153,8 +161,7 @@ export default function WhotGame() {
       turn: "player",
       requestedShape: null,
       pendingPick: 0,
-      pickType: null,
-      status: "playing"
+      pickType: null
     };
 
     setGame(newGame);
@@ -163,22 +170,19 @@ export default function WhotGame() {
   }
 
   // =========================
-  // SPECIAL EFFECTS (FIX)
+  // SPECIAL EFFECTS
   // =========================
-  function applySpecialEffects(card, g) {
-    // PICK 2
+  function applyEffects(card, g) {
     if (card.number === 2) {
       g.pendingPick = (g.pendingPick || 0) + 2;
       g.pickType = 2;
     }
 
-    // PICK 5
     if (card.number === 5) {
       g.pendingPick = (g.pendingPick || 0) + 3;
       g.pickType = 5;
     }
 
-    // WHOT
     if (card.number === 14) {
       g.requestedShape =
         SHAPES[Math.floor(Math.random() * SHAPES.length)];
@@ -206,13 +210,7 @@ export default function WhotGame() {
     player.hand.splice(i, 1);
     copy.discard.push(card);
 
-    applySpecialEffects(card, copy);
-
-    if (player.hand.length === 0) {
-      copy.status = "player_won";
-      setGame(copy);
-      return;
-    }
+    applyEffects(card, copy);
 
     copy.turn = "bot";
     setGame(copy);
@@ -221,15 +219,15 @@ export default function WhotGame() {
   }
 
   // =========================
-  // MARKET (FIX RESTORED)
+  // MARKET (RESTORED)
   // =========================
   function drawMarket() {
     const g = gameRef.current;
     if (!g || g.deck.length === 0) return;
 
     const copy = JSON.parse(JSON.stringify(g));
-
     copy.players[0].hand.push(copy.deck.pop());
+
     addLog("Player drew from market");
 
     copy.turn = "bot";
@@ -239,7 +237,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT MOVE
+  // BOT
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -255,7 +253,6 @@ export default function WhotGame() {
 
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
-      addLog("Bot drew card");
       copy.turn = "player";
       return setGame(copy);
     }
@@ -263,13 +260,7 @@ export default function WhotGame() {
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
-    applySpecialEffects(card, copy);
-
-    if (bot.hand.length === 0) {
-      copy.status = "bot_won";
-      setGame(copy);
-      return;
-    }
+    applyEffects(card, copy);
 
     copy.turn = "player";
     setGame(copy);
@@ -284,14 +275,9 @@ export default function WhotGame() {
           <h2>WHOT GAME</h2>
 
           {!started && (
-            <div style={{ marginBottom: 15 }}>
-              <button style={styles.btn} onClick={startMatch}>
-                ▶ Start Match
-              </button>
-              <button style={styles.btn2}>
-                🌐 Play Online (Later)
-              </button>
-            </div>
+            <button style={styles.btn} onClick={startMatch}>
+              ▶ Start Match
+            </button>
           )}
 
           {started && game && (
@@ -301,7 +287,7 @@ export default function WhotGame() {
               </button>
 
               <div style={styles.table}>
-                🃏 Table:
+                Table:
                 {top && <img src={drawCard(top)} style={styles.card} />}
               </div>
 
@@ -320,7 +306,6 @@ export default function WhotGame() {
         </div>
 
         <div style={styles.log}>
-          <h3>Log</h3>
           {log.map((l, i) => (
             <p key={i}>• {l}</p>
           ))}
@@ -336,7 +321,7 @@ export default function WhotGame() {
 const styles = {
   bg: {
     minHeight: "100vh",
-    background: "radial-gradient(circle, #22c55e, #064e3b)",
+    background: "green",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -344,21 +329,9 @@ const styles = {
   },
   container: { display: "flex", gap: 20 },
   box: { padding: 20, background: "#00000055", borderRadius: 12 },
-  log: { width: 200 },
-  hand: { display: "flex", flexWrap: "wrap", gap: 10 },
+  hand: { display: "flex", gap: 10, flexWrap: "wrap" },
   card: { width: 70, height: 100, cursor: "pointer" },
-  table: { marginTop: 10, marginBottom: 10 },
-  btn: {
-    padding: 10,
-    background: "#10b981",
-    border: 0,
-    color: "white",
-    marginRight: 10
-  },
-  btn2: {
-    padding: 10,
-    background: "#2563eb",
-    border: 0,
-    color: "white"
-  }
+  table: { marginBottom: 10 },
+  log: { width: 200 },
+  btn: { padding: 10, background: "#10b981", color: "#fff", border: 0 }
 };
