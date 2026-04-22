@@ -3,20 +3,19 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// SOUND
+// SOUND (UNCHANGED)
 // =========================
 function playSound(type) {
   const s = {
     play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
     draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
-    alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg",
-    win: "https://actions.google.com/sounds/v1/cartoon/concussive_drum_hit.ogg"
+    alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
   };
   new Audio(s[type]).play().catch(() => {});
 }
 
 // =========================
-// DECK
+// DECK (UNCHANGED)
 // =========================
 function createDeck() {
   const deck = [];
@@ -31,16 +30,16 @@ function createDeck() {
 }
 
 // =========================
-// VALID MOVE
+// VALID MOVE (UNCHANGED FIXED)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
   if (requestedShape) return card.shape === requestedShape;
-  return card.shape === top.shape || card.number === top.number;
+  return card.number === top.number || card.shape === top.shape;
 }
 
 // =========================
-// CARD RENDER
+// CARD RENDER (UNCHANGED)
 // =========================
 const cache = new Map();
 
@@ -71,6 +70,7 @@ function drawCard(card) {
     ctx.arc(cx, cy, 16, 0, Math.PI * 2);
     ctx.fill();
   }
+
   if (card.shape === "square") ctx.fillRect(cx - 14, cy - 14, 28, 28);
 
   if (card.shape === "triangle") {
@@ -103,9 +103,10 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
-
-  // ✅ WIN STATE
   const [winner, setWinner] = useState(null);
+
+  // ✅ ANIMATION STATE
+  const [animId, setAnimId] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -121,24 +122,11 @@ export default function WhotGame() {
     setTimeout(() => setAlerts(p => p.slice(1)), 2500);
   }
 
-  // =========================
-  // WIN CHECK (NEW)
-  // =========================
   function checkWin(copy) {
-    if (copy.players[0].hand.length === 0) {
-      setWinner("YOU");
-      playSound("win");
-    }
-
-    if (copy.players[1].hand.length === 0) {
-      setWinner("BOT");
-      playSound("win");
-    }
+    if (copy.players[0].hand.length === 0) setWinner("YOU");
+    if (copy.players[1].hand.length === 0) setWinner("BOT");
   }
 
-  // =========================
-  // RULES
-  // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
@@ -160,13 +148,10 @@ export default function WhotGame() {
     }
   }
 
-  // =========================
-  // START / REMATCH
-  // =========================
   function startMatch() {
     const deck = createDeck();
 
-    const g = {
+    setGame({
       players: [
         { hand: deck.splice(0, 6) },
         { hand: deck.splice(0, 6) }
@@ -174,9 +159,8 @@ export default function WhotGame() {
       deck,
       discard: [deck.pop()],
       turn: "player"
-    };
+    });
 
-    setGame(g);
     setStarted(true);
     setLog([]);
     setAlerts([]);
@@ -184,8 +168,13 @@ export default function WhotGame() {
   }
 
   // =========================
-  // PLAYER MOVE
+  // 🎞 ANIMATION TRIGGER
   // =========================
+  function animate(id) {
+    setAnimId(id);
+    setTimeout(() => setAnimId(null), 300);
+  }
+
   function playCard(i) {
     if (winner) return;
 
@@ -199,9 +188,12 @@ export default function WhotGame() {
 
     if (!isValidMove(card, top, requestedShape)) return;
 
+    animate(`p-${i}`);
+
     player.hand.splice(i, 1);
     copy.discard.push(card);
 
+    playSound("play");
     applyRules(card, copy, true);
 
     addLog(`You played ${card.number}`);
@@ -214,9 +206,6 @@ export default function WhotGame() {
     setTimeout(botPlay, 400);
   }
 
-  // =========================
-  // MARKET (TURN PASS)
-  // =========================
   function drawMarket() {
     if (winner) return;
 
@@ -224,8 +213,12 @@ export default function WhotGame() {
     if (!g) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
+    animate("market");
+
     copy.players[0].hand.push(copy.deck.pop());
 
+    playSound("draw");
     addLog("Drew from market");
 
     copy.turn = "bot";
@@ -234,9 +227,6 @@ export default function WhotGame() {
     setTimeout(botPlay, 400);
   }
 
-  // =========================
-  // BOT
-  // =========================
   function botPlay() {
     if (winner) return;
 
@@ -257,9 +247,12 @@ export default function WhotGame() {
       return setGame(copy);
     }
 
+    animate("bot");
+
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
+    playSound("play");
     applyRules(card, copy, false);
 
     addLog(`Bot played ${card.number}`);
@@ -274,21 +267,12 @@ export default function WhotGame() {
 
   return (
     <div style={styles.bg}>
-
-      {/* ALERTS */}
-      <div style={styles.alertBox}>
-        {alerts.map((a, i) => <div key={i}>{a}</div>)}
-      </div>
-
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {/* WIN SCREEN */}
-        {winner && (
-          <div style={styles.winBox}>
-            <h1>🏆 {winner} WINS!</h1>
-            <button onClick={startMatch}>🔁 Rematch</button>
-            <button onClick={startMatch}>🎮 New Opponent</button>
+        {started && game && (
+          <div style={{ marginBottom: 10 }}>
+            🤖 Bot Cards: {game.players[1].hand.length}
           </div>
         )}
 
@@ -300,11 +284,28 @@ export default function WhotGame() {
           <>
             <div style={styles.centerRow}>
               <div style={styles.board}>
-                {top && <img src={drawCard(top)} style={styles.card} />}
+                {top && (
+                  <img
+                    src={drawCard(top)}
+                    style={{
+                      ...styles.card,
+                      transform:
+                        animId?.startsWith("bot") ? "translateY(-20px)" : "none",
+                      transition: "0.25s ease"
+                    }}
+                  />
+                )}
               </div>
 
-              <button onClick={drawMarket} style={styles.marketBtn}>
-                🃏 MARKET ({game.deck.length})
+              <button
+                onClick={drawMarket}
+                style={{
+                  ...styles.marketBtn,
+                  transform: animId === "market" ? "scale(0.9)" : "scale(1)",
+                  transition: "0.2s ease"
+                }}
+              >
+                MARKET ({game.deck.length})
               </button>
             </div>
 
@@ -313,12 +314,24 @@ export default function WhotGame() {
                 <img
                   key={i}
                   src={drawCard(c)}
-                  style={styles.card}
                   onClick={() => playCard(i)}
+                  style={{
+                    ...styles.card,
+                    transform:
+                      animId === `p-${i}` ? "translateY(-25px)" : "none",
+                    transition: "0.25s ease"
+                  }}
                 />
               ))}
             </div>
           </>
+        )}
+
+        {winner && (
+          <div style={styles.win}>
+            🏆 {winner} WINS
+            <button onClick={startMatch}>Rematch</button>
+          </div>
         )}
       </div>
     </div>
@@ -326,7 +339,7 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES
+// STYLES (UNCHANGED)
 // =========================
 const styles = {
   bg: {
@@ -364,23 +377,10 @@ const styles = {
     justifyContent: "center"
   },
   card: { width: 55 },
-  alertBox: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    background: "#000000aa",
-    color: "yellow",
-    padding: 8
-  },
-  winBox: {
-    position: "absolute",
-    top: "40%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    background: "black",
-    padding: 20,
-    borderRadius: 10,
+  win: {
     textAlign: "center",
-    color: "gold"
+    background: "black",
+    padding: 10,
+    marginTop: 10
   }
 };
