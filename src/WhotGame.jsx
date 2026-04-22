@@ -20,18 +20,22 @@ function createDeck() {
 }
 
 // =========================
-// VALID MOVE
+// FIXED VALID MOVE (IMPORTANT)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
 
-  if (requestedShape) return card.shape === requestedShape;
+  // WHOT request mode (14)
+  if (requestedShape) {
+    return card.shape === requestedShape;
+  }
 
+  // ✔ FIX: SAME NUMBER WORKS ACROSS ALL SHAPES
   return card.shape === top.shape || card.number === top.number;
 }
 
 // =========================
-// CARD RENDER (CANVAS)
+// CARD RENDER
 // =========================
 const cache = new Map();
 
@@ -113,13 +117,13 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULE ENGINE
+  // RULE ENGINE (ONLY HOLD ADDED)
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
     if (card.number === 1) {
-      copy.hold = isPlayer;
+      copy.holdLock = isPlayer ? "player" : "bot";
       pushAlert("🟡 HOLD ACTIVE");
     }
 
@@ -155,7 +159,7 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      hold: null,
+      holdLock: null,
       awaitingShape: false
     });
 
@@ -216,22 +220,21 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT LOGIC (STABLE)
+  // BOT (FIXED HOLD CHECK)
   // =========================
   function botPlay() {
     const g = gameRef.current;
     if (!g) return;
 
-    const copy = JSON.parse(JSON.stringify(g));
-
-    // SUSPENSION
-    if (copy.skipNext === 1) {
-      pushAlert("🤖 Bot skipped");
-      copy.skipNext = null;
-      copy.turn = "player";
-      return setGame(copy);
+    // ✔ HOLD BLOCK FIX
+    if (g.holdLock === "player") {
+      pushAlert("🤖 Bot blocked by HOLD");
+      const reset = { ...g, holdLock: null, turn: "player" };
+      setGame(reset);
+      return;
     }
 
+    const copy = JSON.parse(JSON.stringify(g));
     const bot = copy.players[1];
     const top = copy.discard.at(-1);
 
@@ -250,8 +253,10 @@ export default function WhotGame() {
 
     applyRules(card, copy, false);
 
-    // HOLD (1)
+    // HOLD (bot)
     if (card.number === 1) {
+      copy.holdLock = "bot";
+      pushAlert("🟡 BOT HOLD ACTIVE");
       copy.turn = "bot";
       setGame(copy);
       return setTimeout(botPlay, 400);
@@ -270,7 +275,7 @@ export default function WhotGame() {
       {started && game && (
         <>
           <div>
-            <b>Market:</b> {game.deck.length}
+            Market: {game.deck.length}
           </div>
 
           <div>
