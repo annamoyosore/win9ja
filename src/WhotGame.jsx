@@ -30,7 +30,7 @@ function createDeck() {
 }
 
 // =========================
-// VALID MOVE
+// RULE CHECK
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
@@ -39,7 +39,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CARD RENDER
+// CARD DRAW
 // =========================
 const cache = new Map();
 
@@ -103,6 +103,7 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
+  const [holdOpponent, setHoldOpponent] = useState(false);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -119,27 +120,34 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULE ENGINE
+  // RULE ENGINE (FIXED)
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
+    // 🟡 CARD 1 → HOLD (FIXED PROPERLY)
+    if (card.number === 1) {
+      copy.holdOpponent = opponent;
+      setHoldOpponent(true);
+      pushAlert("🟡 HOLD ACTIVE");
+    }
+
+    // 🔴 PICK 2
     if (card.number === 2) {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.players[opponent].hand.push(copy.deck.pop());
       pushAlert("🔴 PICK 2");
     }
 
+    // 🔵 SUSPEND
     if (card.number === 8) {
       copy.skipNext = opponent;
       pushAlert("🔵 SUSPEND");
     }
 
-    if (card.number === 14) {
-      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-      setRequestedShape(shape);
-      copy.requestedShape = shape;
-      pushAlert("🟢 REQUEST " + shape);
+    // 🟢 CARD 14 → PLAYER CHOOSES SHAPE (FIXED)
+    if (card.number === 14 && isPlayer) {
+      pushAlert("🟢 SELECT SHAPE FOR OPPONENT");
     }
   }
 
@@ -158,13 +166,14 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      requestedShape: null
+      holdOpponent: null
     });
 
     setStarted(true);
     setLog([]);
     setAlerts([]);
     setRequestedShape(null);
+    setHoldOpponent(false);
   }
 
   const top = game?.discard?.at(-1);
@@ -189,18 +198,24 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
+
     applyRules(card, copy, true);
 
-    addLog(`You played ${card.number}`);
+    // 🟡 HOLD EFFECT FIX
+    if (card.number === 1) {
+      copy.turn = "player";
+      setGame(copy);
+      return;
+    }
 
-    copy.turn = "bot";
     setGame(copy);
+    copy.turn = "bot";
 
     setTimeout(botPlay, 400);
   }
 
   // =========================
-  // MARKET
+  // MARKET (TURN PASS FIXED)
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -219,16 +234,25 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT
+  // BOT (RESPECT HOLD)
   // =========================
   function botPlay() {
     const g = gameRef.current;
     if (!g) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
+    // 🟡 HOLD CHECK (FIXED)
+    if (copy.holdOpponent === 1) {
+      copy.holdOpponent = null;
+      pushAlert("🤖 BOT HELD");
+      copy.turn = "player";
+      return setGame(copy);
+    }
+
     const bot = copy.players[1];
 
-    const move = bot.hand.findIndex(c =>
+    let move = bot.hand.findIndex(c =>
       isValidMove(c, top, requestedShape)
     );
 
@@ -252,18 +276,28 @@ export default function WhotGame() {
   }
 
   // =========================
-  // LANDING PAGE (FIXED GREEN UI)
+  // SHAPE SELECT (FOR 14 FIX)
+  // =========================
+  function chooseShape(shape) {
+    setRequestedShape(shape);
+    pushAlert("🟢 SHAPE: " + shape);
+
+    const copy = JSON.parse(JSON.stringify(game));
+    copy.turn = "bot";
+    setGame(copy);
+
+    setTimeout(botPlay, 400);
+  }
+
+  // =========================
+  // START SCREEN
   // =========================
   if (!game) {
     return (
       <div style={styles.bg}>
-        <div style={styles.landing}>
-          <h1 style={{ color: "#fff" }}>WHOT GAME</h1>
-
-          <button onClick={startMatch} style={styles.startBtn}>
-            Start Game
-          </button>
-        </div>
+        <button onClick={startMatch} style={styles.startBtn}>
+          START GAME
+        </button>
       </div>
     );
   }
@@ -273,22 +307,35 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        <div style={styles.history}>
-          {log.map((l, i) => <div key={i}>• {l}</div>)}
-        </div>
-
+        {/* ALERTS */}
         <div style={styles.alertBox}>
           {alerts.map((a, i) => <div key={i}>{a}</div>)}
         </div>
 
-        <div>
-          🤖 Bot Cards: {game.players[1].hand.length}
+        {/* BOT INFO */}
+        <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
+
+        {/* CENTER BOARD + MARKET (FIXED POSITION) */}
+        <div style={styles.center}>
+          <div>
+            {top && <img src={drawCard(top)} style={{ width: 60 }} />}
+          </div>
+
+          <button onClick={drawMarket} style={styles.marketBtn}>
+            MARKET ({game.deck.length})
+          </button>
         </div>
 
+        {/* SHAPE SELECT FOR 14 */}
         <div>
-          {top && <img src={drawCard(top)} style={{ width: 60 }} />}
+          {requestedShape && SHAPES.map(s => (
+            <button key={s} onClick={() => chooseShape(s)}>
+              {s}
+            </button>
+          ))}
         </div>
 
+        {/* PLAYER HAND */}
         <div>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -299,15 +346,13 @@ export default function WhotGame() {
             />
           ))}
         </div>
-
-        <button onClick={drawMarket}>Market ({game.deck.length})</button>
       </div>
     </div>
   );
 }
 
 // =========================
-// STYLES (GREEN LANDING RESTORED)
+// STYLE (UNCHANGED CORE)
 // =========================
 const styles = {
   bg: {
@@ -317,38 +362,37 @@ const styles = {
     justifyContent: "center",
     alignItems: "center"
   },
-
-  landing: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    gap: 20
-  },
-
-  startBtn: {
-    padding: "12px 18px",
-    background: "linear-gradient(45deg, #16a34a, #22c55e)",
-    color: "#fff",
-    fontWeight: "bold",
-    border: "none",
-    borderRadius: 10,
-    cursor: "pointer"
-  },
-
   box: {
     width: 420,
     padding: 10,
     background: "#00000066",
     color: "#fff"
   },
-
-  history: { fontSize: 12, marginBottom: 10 },
-
+  center: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+    margin: "10px 0"
+  },
+  marketBtn: {
+    background: "gold",
+    border: "none",
+    padding: "10px",
+    fontWeight: "bold",
+    borderRadius: 8
+  },
   alertBox: {
     background: "#000000aa",
     color: "yellow",
-    padding: 6
+    padding: 6,
+    marginBottom: 5
+  },
+  startBtn: {
+    padding: 15,
+    background: "green",
+    color: "#fff",
+    border: "none",
+    borderRadius: 10
   }
 };
