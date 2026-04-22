@@ -105,16 +105,12 @@ export default function WhotGame() {
   const [requestedShape, setRequestedShape] = useState(null);
   const [showWin, setShowWin] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+
+  // NEW
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
 
-  // COINS + ROUNDS
   const [coins, setCoins] = useState([3, 3]);
   const [round, setRound] = useState(1);
-
-  // BETTING MODE
-  const [betMode, setBetMode] = useState(false);
-  const [betAmount, setBetAmount] = useState(1);
-  const [pot, setPot] = useState(0);
 
   const gameRef = useRef(null);
   useEffect(() => { gameRef.current = game; }, [game]);
@@ -128,34 +124,22 @@ export default function WhotGame() {
     setTimeout(() => setAlerts(p => p.slice(1)), 2500);
   }
 
-  // =========================
-  // WIN LOGIC
-  // =========================
   function handleRoundWin(winnerIndex) {
     setShowWin(true);
 
     setCoins(prev => {
       const updated = [...prev];
 
-      if (betMode) {
-        if (winnerIndex === 0) {
-          updated[0] += pot;
-          updated[1] -= pot;
-        } else {
-          updated[1] += pot;
-          updated[0] -= pot;
-        }
+      if (winnerIndex === 0) {
+        updated[0] += 1;
+        updated[1] -= 1;
+        setWinner("YOU WIN ROUND 🏆");
       } else {
-        if (winnerIndex === 0) {
-          updated[0] += 1;
-          updated[1] -= 1;
-        } else {
-          updated[1] += 1;
-          updated[0] -= 1;
-        }
+        updated[1] += 1;
+        updated[0] -= 1;
+        setWinner("BOT WINS ROUND 🤖🏆");
       }
 
-      setWinner(winnerIndex === 0 ? "YOU WIN ROUND 🏆" : "BOT WINS ROUND 🤖🏆");
       return updated;
     });
   }
@@ -172,9 +156,6 @@ export default function WhotGame() {
     return false;
   }
 
-  // =========================
-  // RULES
-  // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
@@ -197,9 +178,6 @@ export default function WhotGame() {
     }
   }
 
-  // =========================
-  // START MATCH
-  // =========================
   function startMatch() {
     const deck = createDeck();
 
@@ -216,8 +194,6 @@ export default function WhotGame() {
 
     setCoins([3, 3]);
     setRound(1);
-    setPot(betMode ? betAmount * 2 : 0);
-
     setLog([]);
     setAlerts([]);
     setWinner(null);
@@ -225,12 +201,10 @@ export default function WhotGame() {
     setConfirmWithdraw(false);
   }
 
-  // =========================
-  // NEXT ROUND
-  // =========================
   function nextRound() {
     if (round >= 3 || coins[0] === 0 || coins[1] === 0) {
-      setWinner(coins[0] > coins[1] ? "🏆 YOU WON MATCH" : "🤖 BOT WON MATCH");
+      if (coins[0] > coins[1]) setWinner("🏆 YOU WON THE MATCH");
+      else setWinner("🤖 BOT WON THE MATCH");
       return;
     }
 
@@ -258,9 +232,6 @@ export default function WhotGame() {
 
   const top = game?.discard?.at(-1);
 
-  // =========================
-  // PLAY
-  // =========================
   function playCard(i) {
     const g = gameRef.current;
     if (!g || winner || g.turn !== "player") return;
@@ -286,13 +257,9 @@ export default function WhotGame() {
 
     copy.turn = "bot";
     setGame(copy);
-
     setTimeout(botPlay, 5000);
   }
 
-  // =========================
-  // MARKET
-  // =========================
   function drawMarket() {
     const g = gameRef.current;
     if (!g || winner || g.turn !== "player") return;
@@ -305,18 +272,21 @@ export default function WhotGame() {
 
     copy.turn = "bot";
     setGame(copy);
-
     setTimeout(botPlay, 5000);
   }
 
-  // =========================
-  // BOT
-  // =========================
   function botPlay() {
     const g = gameRef.current;
     if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
+    if (copy.skipNext === 1) {
+      copy.skipNext = null;
+      pushAlert("🤖 BOT SKIPPED");
+      copy.turn = "player";
+      return setGame(copy);
+    }
 
     const bot = copy.players[1];
 
@@ -345,37 +315,9 @@ export default function WhotGame() {
     setGame(copy);
   }
 
-  // =========================
-  // UI
-  // =========================
   if (!game) {
     return (
       <div style={styles.bg}>
-        {/* BETTING MODE UI */}
-        <div style={{ textAlign: "center", color: "#fff", marginBottom: 10 }}>
-          <label>
-            Betting Mode{" "}
-            <input
-              type="checkbox"
-              checked={betMode}
-              onChange={() => setBetMode(!betMode)}
-            />
-          </label>
-
-          {betMode && (
-            <div>
-              Bet:
-              <input
-                type="number"
-                min="1"
-                max="3"
-                value={betAmount}
-                onChange={(e) => setBetAmount(Number(e.target.value))}
-              />
-            </div>
-          )}
-        </div>
-
         <button onClick={startMatch} style={styles.startBtn}>
           START GAME
         </button>
@@ -389,7 +331,7 @@ export default function WhotGame() {
         <h2>WHOT GAME</h2>
 
         <div>
-          🪙 You: {coins[0]} | 🤖 Bot: {coins[1]} | 💰 Pot: {pot} | 🔁 Round: {round}/3
+          🪙 You: {coins[0]} | 🤖 Bot: {coins[1]} | 🔁 Round: {round}/3
         </div>
 
         {showWin && (
@@ -398,14 +340,11 @@ export default function WhotGame() {
               <h1>{winner}</h1>
 
               <button onClick={nextRound} style={styles.rematchBtn}>
-                NEXT ROUND
+                ▶ NEXT ROUND
               </button>
 
-              <button
-                onClick={() => setConfirmWithdraw(true)}
-                style={{ ...styles.rematchBtn, marginTop: 10 }}
-              >
-                WITHDRAW GAME
+              <button onClick={() => setConfirmWithdraw(true)} style={{ ...styles.rematchBtn, marginTop: 10 }}>
+                🚪 WITHDRAW GAME
               </button>
             </div>
           </div>
@@ -417,13 +356,10 @@ export default function WhotGame() {
               <h3>Confirm Withdraw?</h3>
 
               <button onClick={handleWithdraw} style={styles.rematchBtn}>
-                YES
+                YES WITHDRAW
               </button>
 
-              <button
-                onClick={() => setConfirmWithdraw(false)}
-                style={{ ...styles.rematchBtn, marginTop: 10 }}
-              >
+              <button onClick={() => setConfirmWithdraw(false)} style={{ ...styles.rematchBtn, marginTop: 10 }}>
                 CANCEL
               </button>
             </div>
@@ -455,57 +391,13 @@ export default function WhotGame() {
 // STYLES
 // =========================
 const styles = {
-  bg: {
-    minHeight: "100vh",
-    background: "green",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  box: {
-    width: 420,
-    padding: 10,
-    background: "#00000066",
-    color: "#fff"
-  },
-  center: {
-    display: "flex",
-    justifyContent: "center",
-    gap: 10
-  },
-  marketBtn: {
-    background: "gold",
-    padding: 10,
-    borderRadius: 8
-  },
-  history: {
-    fontSize: 12,
-    marginTop: 10
-  },
-  startBtn: {
-    padding: 15,
-    background: "green",
-    color: "#fff",
-    borderRadius: 10
-  },
-  winOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    background: "rgba(0,0,0,0.85)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  winBox: {
-    textAlign: "center",
-    color: "gold"
-  },
-  rematchBtn: {
-    padding: 12,
-    background: "gold",
-    borderRadius: 10
-  }
+  bg: { minHeight: "100vh", background: "green", display: "flex", justifyContent: "center", alignItems: "center" },
+  box: { width: 420, padding: 10, background: "#00000066", color: "#fff" },
+  center: { display: "flex", justifyContent: "center", gap: 10 },
+  marketBtn: { background: "gold", padding: 10, borderRadius: 8 },
+  history: { fontSize: 12, marginTop: 10 },
+  startBtn: { padding: 15, background: "green", color: "#fff", borderRadius: 10 },
+  winOverlay: { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center" },
+  winBox: { textAlign: "center", color: "gold" },
+  rematchBtn: { padding: 12, background: "gold", borderRadius: 10 }
 };
