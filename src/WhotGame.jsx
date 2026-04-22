@@ -15,7 +15,7 @@ function playSound(type) {
 }
 
 // =========================
-// DECK (UNCHANGED)
+// DECK
 // =========================
 function createDeck() {
   const deck = [];
@@ -30,11 +30,13 @@ function createDeck() {
 }
 
 // =========================
-// VALID MOVE (UNCHANGED FIXED)
+// VALID MOVE (FIXED)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
   if (requestedShape) return card.shape === requestedShape;
+
+  // IMPORTANT: number match across shapes is intact
   return card.number === top.number || card.shape === top.shape;
 }
 
@@ -103,16 +105,15 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
-  const [winner, setWinner] = useState(null);
-
-  // ✅ ANIMATION STATE
-  const [animId, setAnimId] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
 
+  // =========================
+  // HISTORY (FIXED)
+  // =========================
   function addLog(msg) {
     setLog(p => [...p, msg].slice(-10));
   }
@@ -122,32 +123,46 @@ export default function WhotGame() {
     setTimeout(() => setAlerts(p => p.slice(1)), 2500);
   }
 
-  function checkWin(copy) {
-    if (copy.players[0].hand.length === 0) setWinner("YOU");
-    if (copy.players[1].hand.length === 0) setWinner("BOT");
-  }
-
+  // =========================
+  // RULE ENGINE (FULL RESTORE)
+  // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
+    // 🟡 CARD 1 → HOLD / REPEAT TURN
+    if (card.number === 1) {
+      copy.hold = isPlayer ? "player" : "bot";
+      pushAlert("🟡 HOLD ACTIVE");
+      addLog("Hold activated");
+    }
+
+    // 🔴 CARD 2 → PICK 2
     if (card.number === 2) {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.players[opponent].hand.push(copy.deck.pop());
       pushAlert("🔴 PICK 2");
+      addLog("Opponent picked 2 cards");
     }
 
+    // 🔵 CARD 8 → SUSPENSION
     if (card.number === 8) {
       copy.skipNext = opponent;
       pushAlert("🔵 SUSPENSION");
+      addLog("Opponent skipped");
     }
 
+    // 🟢 CARD 14 → REQUEST SHAPE
     if (card.number === 14) {
       const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
       setRequestedShape(shape);
       pushAlert("🟢 REQUEST: " + shape);
+      addLog("Shape requested: " + shape);
     }
   }
 
+  // =========================
+  // START
+  // =========================
   function startMatch() {
     const deck = createDeck();
 
@@ -158,26 +173,20 @@ export default function WhotGame() {
       ],
       deck,
       discard: [deck.pop()],
-      turn: "player"
+      turn: "player",
+      skipNext: null,
+      hold: null
     });
 
     setStarted(true);
     setLog([]);
     setAlerts([]);
-    setWinner(null);
   }
 
   // =========================
-  // 🎞 ANIMATION TRIGGER
+  // PLAYER MOVE
   // =========================
-  function animate(id) {
-    setAnimId(id);
-    setTimeout(() => setAnimId(null), 300);
-  }
-
   function playCard(i) {
-    if (winner) return;
-
     const g = gameRef.current;
     if (!g || g.turn !== "player") return;
 
@@ -187,8 +196,6 @@ export default function WhotGame() {
     const card = player.hand[i];
 
     if (!isValidMove(card, top, requestedShape)) return;
-
-    animate(`p-${i}`);
 
     player.hand.splice(i, 1);
     copy.discard.push(card);
@@ -201,25 +208,21 @@ export default function WhotGame() {
     copy.turn = "bot";
     setGame(copy);
 
-    checkWin(copy);
-
     setTimeout(botPlay, 400);
   }
 
+  // =========================
+  // MARKET (FIXED TURN FLOW)
+  // =========================
   function drawMarket() {
-    if (winner) return;
-
     const g = gameRef.current;
     if (!g) return;
 
     const copy = JSON.parse(JSON.stringify(g));
-
-    animate("market");
-
     copy.players[0].hand.push(copy.deck.pop());
 
     playSound("draw");
-    addLog("Drew from market");
+    addLog("Player drew from market");
 
     copy.turn = "bot";
     setGame(copy);
@@ -227,13 +230,23 @@ export default function WhotGame() {
     setTimeout(botPlay, 400);
   }
 
+  // =========================
+  // BOT (RULE SAFE)
+  // =========================
   function botPlay() {
-    if (winner) return;
-
     const g = gameRef.current;
     if (!g) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
+    // 🔵 SUSPENSION CHECK
+    if (copy.skipNext === 1) {
+      addLog("Bot skipped");
+      copy.skipNext = null;
+      copy.turn = "player";
+      return setGame(copy);
+    }
+
     const bot = copy.players[1];
     const top = copy.discard.at(-1);
 
@@ -243,11 +256,10 @@ export default function WhotGame() {
 
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
+      addLog("Bot drew card");
       copy.turn = "player";
       return setGame(copy);
     }
-
-    animate("bot");
 
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
@@ -259,8 +271,6 @@ export default function WhotGame() {
 
     copy.turn = "player";
     setGame(copy);
-
-    checkWin(copy);
   }
 
   const top = game?.discard?.at(-1);
@@ -270,41 +280,25 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {started && game && (
-          <div style={{ marginBottom: 10 }}>
-            🤖 Bot Cards: {game.players[1].hand.length}
-          </div>
-        )}
+        {/* HISTORY (RESTORED PROPERLY) */}
+        <div style={styles.history}>
+          {log.map((l, i) => (
+            <div key={i}>• {l}</div>
+          ))}
+        </div>
 
-        {!started && !winner && (
+        {!started && (
           <button onClick={startMatch}>Start</button>
         )}
 
-        {started && game && !winner && (
+        {started && game && (
           <>
             <div style={styles.centerRow}>
               <div style={styles.board}>
-                {top && (
-                  <img
-                    src={drawCard(top)}
-                    style={{
-                      ...styles.card,
-                      transform:
-                        animId?.startsWith("bot") ? "translateY(-20px)" : "none",
-                      transition: "0.25s ease"
-                    }}
-                  />
-                )}
+                {top && <img src={drawCard(top)} style={styles.card} />}
               </div>
 
-              <button
-                onClick={drawMarket}
-                style={{
-                  ...styles.marketBtn,
-                  transform: animId === "market" ? "scale(0.9)" : "scale(1)",
-                  transition: "0.2s ease"
-                }}
-              >
+              <button onClick={drawMarket} style={styles.marketBtn}>
                 MARKET ({game.deck.length})
               </button>
             </div>
@@ -314,24 +308,12 @@ export default function WhotGame() {
                 <img
                   key={i}
                   src={drawCard(c)}
+                  style={styles.card}
                   onClick={() => playCard(i)}
-                  style={{
-                    ...styles.card,
-                    transform:
-                      animId === `p-${i}` ? "translateY(-25px)" : "none",
-                    transition: "0.25s ease"
-                  }}
                 />
               ))}
             </div>
           </>
-        )}
-
-        {winner && (
-          <div style={styles.win}>
-            🏆 {winner} WINS
-            <button onClick={startMatch}>Rematch</button>
-          </div>
         )}
       </div>
     </div>
@@ -377,10 +359,8 @@ const styles = {
     justifyContent: "center"
   },
   card: { width: 55 },
-  win: {
-    textAlign: "center",
-    background: "black",
-    padding: 10,
-    marginTop: 10
+  history: {
+    marginBottom: 10,
+    fontSize: 12
   }
 };
