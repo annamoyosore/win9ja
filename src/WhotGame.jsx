@@ -99,18 +99,25 @@ function drawCard(card) {
 // =========================
 export default function WhotGame() {
   const [game, setGame] = useState(null);
-  const [started, setStarted] = useState(false);
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [winner, setWinner] = useState(null);
   const [requestedShape, setRequestedShape] = useState(null);
   const [showWin, setShowWin] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+
+  // COINS + ROUNDS
+  const [coins, setCoins] = useState([3, 3]);
+  const [round, setRound] = useState(1);
+
+  // BETTING MODE
+  const [betMode, setBetMode] = useState(false);
+  const [betAmount, setBetAmount] = useState(1);
+  const [pot, setPot] = useState(0);
 
   const gameRef = useRef(null);
-  useEffect(() => {
-    gameRef.current = game;
-  }, [game]);
+  useEffect(() => { gameRef.current = game; }, [game]);
 
   function addLog(msg) {
     setLog(p => [...p, msg].slice(-10));
@@ -121,20 +128,53 @@ export default function WhotGame() {
     setTimeout(() => setAlerts(p => p.slice(1)), 2500);
   }
 
+  // =========================
+  // WIN LOGIC
+  // =========================
+  function handleRoundWin(winnerIndex) {
+    setShowWin(true);
+
+    setCoins(prev => {
+      const updated = [...prev];
+
+      if (betMode) {
+        if (winnerIndex === 0) {
+          updated[0] += pot;
+          updated[1] -= pot;
+        } else {
+          updated[1] += pot;
+          updated[0] -= pot;
+        }
+      } else {
+        if (winnerIndex === 0) {
+          updated[0] += 1;
+          updated[1] -= 1;
+        } else {
+          updated[1] += 1;
+          updated[0] -= 1;
+        }
+      }
+
+      setWinner(winnerIndex === 0 ? "YOU WIN ROUND 🏆" : "BOT WINS ROUND 🤖🏆");
+      return updated;
+    });
+  }
+
   function checkWin(copy) {
     if (copy.players[0].hand.length === 0) {
-      setWinner("YOU WIN 🏆");
-      setShowWin(true);
+      handleRoundWin(0);
       return true;
     }
     if (copy.players[1].hand.length === 0) {
-      setWinner("BOT WINS 🤖🏆");
-      setShowWin(true);
+      handleRoundWin(1);
       return true;
     }
     return false;
   }
 
+  // =========================
+  // RULES
+  // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
@@ -153,10 +193,13 @@ export default function WhotGame() {
     if (card.number === 14) {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.skipNext = opponent;
-      pushAlert("🟢 GENERAL MARKET (Pick 1 + Skip)");
+      pushAlert("🟢 GENERAL MARKET");
     }
   }
 
+  // =========================
+  // START MATCH
+  // =========================
   function startMatch() {
     const deck = createDeck();
 
@@ -171,16 +214,53 @@ export default function WhotGame() {
       skipNext: null
     });
 
-    setStarted(true);
+    setCoins([3, 3]);
+    setRound(1);
+    setPot(betMode ? betAmount * 2 : 0);
+
     setLog([]);
     setAlerts([]);
     setWinner(null);
     setShowWin(false);
-    setRequestedShape(null);
+    setConfirmWithdraw(false);
+  }
+
+  // =========================
+  // NEXT ROUND
+  // =========================
+  function nextRound() {
+    if (round >= 3 || coins[0] === 0 || coins[1] === 0) {
+      setWinner(coins[0] > coins[1] ? "🏆 YOU WON MATCH" : "🤖 BOT WON MATCH");
+      return;
+    }
+
+    const deck = createDeck();
+
+    setGame({
+      players: [
+        { hand: deck.splice(0, 6) },
+        { hand: deck.splice(0, 6) }
+      ],
+      deck,
+      discard: [deck.pop()],
+      turn: "player",
+      skipNext: null
+    });
+
+    setRound(r => r + 1);
+    setShowWin(false);
+  }
+
+  function handleWithdraw() {
+    handleRoundWin(1);
+    setConfirmWithdraw(false);
   }
 
   const top = game?.discard?.at(-1);
 
+  // =========================
+  // PLAY
+  // =========================
   function playCard(i) {
     const g = gameRef.current;
     if (!g || winner || g.turn !== "player") return;
@@ -210,6 +290,9 @@ export default function WhotGame() {
     setTimeout(botPlay, 5000);
   }
 
+  // =========================
+  // MARKET
+  // =========================
   function drawMarket() {
     const g = gameRef.current;
     if (!g || winner || g.turn !== "player") return;
@@ -226,18 +309,14 @@ export default function WhotGame() {
     setTimeout(botPlay, 5000);
   }
 
+  // =========================
+  // BOT
+  // =========================
   function botPlay() {
     const g = gameRef.current;
     if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
-
-    if (copy.skipNext === 1) {
-      copy.skipNext = null;
-      pushAlert("🤖 BOT SKIPPED");
-      copy.turn = "player";
-      return setGame(copy);
-    }
 
     const bot = copy.players[1];
 
@@ -266,9 +345,37 @@ export default function WhotGame() {
     setGame(copy);
   }
 
+  // =========================
+  // UI
+  // =========================
   if (!game) {
     return (
       <div style={styles.bg}>
+        {/* BETTING MODE UI */}
+        <div style={{ textAlign: "center", color: "#fff", marginBottom: 10 }}>
+          <label>
+            Betting Mode{" "}
+            <input
+              type="checkbox"
+              checked={betMode}
+              onChange={() => setBetMode(!betMode)}
+            />
+          </label>
+
+          {betMode && (
+            <div>
+              Bet:
+              <input
+                type="number"
+                min="1"
+                max="3"
+                value={betAmount}
+                onChange={(e) => setBetAmount(Number(e.target.value))}
+              />
+            </div>
+          )}
+        </div>
+
         <button onClick={startMatch} style={styles.startBtn}>
           START GAME
         </button>
@@ -281,64 +388,47 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
+        <div>
+          🪙 You: {coins[0]} | 🤖 Bot: {coins[1]} | 💰 Pot: {pot} | 🔁 Round: {round}/3
+        </div>
+
         {showWin && (
           <div style={styles.winOverlay}>
             <div style={styles.winBox}>
               <h1>{winner}</h1>
-              <div style={styles.flowers}>🌸🌺🌸🌺🌸🌺</div>
 
-              <button onClick={() => setConfirmExit(true)} style={styles.rematchBtn}>
-                🔁 REMATCH
+              <button onClick={nextRound} style={styles.rematchBtn}>
+                NEXT ROUND
               </button>
 
-              <button onClick={() => setConfirmExit(true)} style={{ ...styles.rematchBtn, marginTop: 10 }}>
-                🏠 HOME
+              <button
+                onClick={() => setConfirmWithdraw(true)}
+                style={{ ...styles.rematchBtn, marginTop: 10 }}
+              >
+                WITHDRAW GAME
               </button>
             </div>
-
-            {confirmExit && (
-              <div style={styles.confirmBox}>
-                <p>Choose action:</p>
-
-                <button onClick={startMatch} style={styles.rematchBtn}>
-                  REMATCH
-                </button>
-
-                <button
-                  onClick={() => {
-                    setGame(null);
-                    setStarted(false);
-                    setConfirmExit(false);
-                  }}
-                  style={{ ...styles.rematchBtn, marginTop: 10 }}
-                >
-                  HOME
-                </button>
-
-                <button
-                  onClick={() => setConfirmExit(false)}
-                  style={{ ...styles.rematchBtn, marginTop: 10, background: "gray" }}
-                >
-                  CANCEL
-                </button>
-              </div>
-            )}
           </div>
         )}
 
-        <div style={styles.alertBox}>
-          {alerts.map((a, i) => <div key={i}>{a}</div>)}
-        </div>
+        {confirmWithdraw && (
+          <div style={styles.winOverlay}>
+            <div style={styles.winBox}>
+              <h3>Confirm Withdraw?</h3>
 
-        {/* ✅ Opponent cards */}
-        <div>
-          🤖 Bot Cards: {game.players[1].hand.length}
-          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
-            {game.players[1].hand.map((_, i) => (
-              <div key={i} style={styles.cardBack}></div>
-            ))}
+              <button onClick={handleWithdraw} style={styles.rematchBtn}>
+                YES
+              </button>
+
+              <button
+                onClick={() => setConfirmWithdraw(false)}
+                style={{ ...styles.rematchBtn, marginTop: 10 }}
+              >
+                CANCEL
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
@@ -362,7 +452,7 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES (ONLY ADDITIONS)
+// STYLES
 // =========================
 const styles = {
   bg: {
@@ -381,28 +471,12 @@ const styles = {
   center: {
     display: "flex",
     justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    margin: "10px 0"
+    gap: 10
   },
   marketBtn: {
     background: "gold",
-    border: "none",
     padding: 10,
-    fontWeight: "bold",
     borderRadius: 8
-  },
-  cardBack: {
-    width: 30,
-    height: 45,
-    background: "#222",
-    border: "2px solid gold",
-    borderRadius: 4
-  },
-  alertBox: {
-    background: "#000000aa",
-    color: "yellow",
-    padding: 6
   },
   history: {
     fontSize: 12,
@@ -412,7 +486,6 @@ const styles = {
     padding: 15,
     background: "green",
     color: "#fff",
-    border: "none",
     borderRadius: 10
   },
   winOverlay: {
@@ -430,22 +503,9 @@ const styles = {
     textAlign: "center",
     color: "gold"
   },
-  flowers: {
-    fontSize: 40,
-    margin: "20px 0"
-  },
   rematchBtn: {
     padding: 12,
     background: "gold",
-    border: "none",
     borderRadius: 10
-  },
-  confirmBox: {
-    position: "absolute",
-    bottom: 40,
-    background: "#000",
-    padding: 20,
-    borderRadius: 10,
-    textAlign: "center"
   }
 };
