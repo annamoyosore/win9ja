@@ -15,11 +15,10 @@ function playSound(type) {
 }
 
 // =========================
-// DECK (CARD 5 REMOVED)
+// DECK
 // =========================
 function createDeck() {
   const deck = [];
-
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
       if (i === 6 || i === 9) continue;
@@ -27,7 +26,6 @@ function createDeck() {
     }
     deck.push({ shape, number: 14 });
   }
-
   return deck.sort(() => Math.random() - 0.5);
 }
 
@@ -41,7 +39,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CARD RENDER
+// CARD DRAW
 // =========================
 const cache = new Map();
 
@@ -104,7 +102,7 @@ export default function WhotGame() {
   const [started, setStarted] = useState(false);
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [requestedShape, setRequestedShape] = useState(null);
+  const [winner, setWinner] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -121,16 +119,10 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULE ENGINE (FIXED)
+  // RULES (UPDATED 14 FIXED)
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
-
-    // HOLD ON
-    if (card.number === 1) {
-      copy.hold = opponent;
-      pushAlert("🟡 HOLD ON");
-    }
 
     // PICK 2
     if (card.number === 2) {
@@ -140,20 +132,22 @@ export default function WhotGame() {
       pushAlert("🔴 PICK 2");
     }
 
-    // SUSPENSION
+    // SUSPEND
     if (card.number === 8) {
       copy.skipNext = opponent;
       pushAlert("🔵 SUSPEND");
     }
 
-    // 14 → ALL OPPONENTS DRAW 1
+    // 🟢 14 = GENERAL MARKET (FIXED)
     if (card.number === 14) {
       copy.players.forEach((p, idx) => {
         if (idx !== opponent) {
           p.hand.push(copy.deck.pop());
         }
       });
-      pushAlert("🟢 ALL OPPONENTS DRAW 1");
+
+      copy.skipNext = opponent;
+      pushAlert("🟢 GENERAL MARKET (DRAW 1 + SKIP)");
     }
   }
 
@@ -171,32 +165,45 @@ export default function WhotGame() {
       deck,
       discard: [deck.pop()],
       turn: "player",
-      skipNext: null,
-      hold: null
+      skipNext: null
     });
 
     setStarted(true);
     setLog([]);
     setAlerts([]);
+    setWinner(null);
   }
 
   const top = game?.discard?.at(-1);
+
+  // =========================
+  // WIN CHECK (FIXED)
+  // =========================
+  function checkWin(copy) {
+    if (copy.players[0].hand.length === 0) {
+      setWinner("YOU WIN 🏆");
+      return true;
+    }
+    if (copy.players[1].hand.length === 0) {
+      setWinner("BOT WINS 🤖🏆");
+      return true;
+    }
+    return false;
+  }
 
   // =========================
   // PLAYER MOVE
   // =========================
   function playCard(i) {
     const g = gameRef.current;
-    if (!g || g.turn !== "player") return;
+    if (!g || g.turn !== "player" || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
     const player = copy.players[0];
     const card = player.hand[i];
 
-    // ❌ INVALID MOVE POPUP
-    if (!isValidMove(card, top, requestedShape)) {
-      pushAlert("❌ Invalid move: must match shape or number");
-      playSound("alert");
+    if (!isValidMove(card, top)) {
+      pushAlert("❌ Invalid move");
       return;
     }
 
@@ -204,16 +211,12 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
+
     applyRules(card, copy, true);
 
-    addLog(`You played ${card.number} (${card.shape})`);
+    addLog(`You played ${card.number}`);
 
-    // HOLD LOGIC
-    if (card.number === 1) {
-      copy.turn = "player";
-      setGame(copy);
-      return;
-    }
+    if (checkWin(copy)) return;
 
     copy.turn = "bot";
     setGame(copy);
@@ -245,14 +248,13 @@ export default function WhotGame() {
   // =========================
   function botPlay() {
     const g = gameRef.current;
-    if (!g) return;
+    if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
 
-    // SKIP CHECK
     if (copy.skipNext === 1) {
       copy.skipNext = null;
-      pushAlert("🤖 Bot skipped");
+      pushAlert("🤖 BOT SKIPPED");
       copy.turn = "player";
       return setGame(copy);
     }
@@ -260,7 +262,7 @@ export default function WhotGame() {
     const bot = copy.players[1];
 
     let move = bot.hand.findIndex(c =>
-      isValidMove(c, top, requestedShape)
+      isValidMove(c, top)
     );
 
     if (move === -1) {
@@ -274,9 +276,12 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
+
     applyRules(card, copy, false);
 
     addLog(`Bot played ${card.number}`);
+
+    if (checkWin(copy)) return;
 
     copy.turn = "player";
     setGame(copy);
@@ -300,6 +305,12 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
+        {winner && (
+          <div style={{ color: "gold", fontSize: 20 }}>
+            {winner}
+          </div>
+        )}
+
         <div style={styles.alertBox}>
           {alerts.map((a, i) => <div key={i}>{a}</div>)}
         </div>
@@ -308,9 +319,6 @@ export default function WhotGame() {
 
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
-          <button onClick={drawMarket} style={styles.marketBtn}>
-            MARKET ({game.deck.length})
-          </button>
         </div>
 
         <div>
@@ -352,16 +360,7 @@ const styles = {
   center: {
     display: "flex",
     justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
     margin: "10px 0"
-  },
-  marketBtn: {
-    background: "gold",
-    border: "none",
-    padding: 10,
-    fontWeight: "bold",
-    borderRadius: 8
   },
   alertBox: {
     background: "#000000aa",
