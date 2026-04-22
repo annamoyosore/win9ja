@@ -40,21 +40,17 @@ function playSound(type) {
 }
 
 // =========================
-// FIXED MATCH RULE (STABLE FLEX NUMBER MATCH)
+// MATCH RULE (STABLE FLEX)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
 
-  // WHOT override
   if (card.number === 14) return true;
 
-  // shape request mode
   if (requestedShape) {
     return card.shape === requestedShape;
   }
 
-  // ✅ STABLE RULE:
-  // same shape OR same number (across all shapes allowed)
   return card.shape === top.shape || card.number === top.number;
 }
 
@@ -162,7 +158,7 @@ function drawCard(card) {
 }
 
 // =========================
-// MAIN GAME
+// GAME
 // =========================
 export default function WhotGame() {
   const [game, setGame] = useState(null);
@@ -200,7 +196,8 @@ export default function WhotGame() {
       deck,
       discard: [deck.pop()],
       turn: "player",
-      requestedShape: null
+      requestedShape: null,
+      turnLocked: false
     });
 
     setStarted(true);
@@ -220,7 +217,7 @@ export default function WhotGame() {
   // =========================
   function playCard(i) {
     const g = gameRef.current;
-    if (!g || g.turn !== "player") return;
+    if (!g || g.turn !== "player" || g.turnLocked) return;
 
     const copy = JSON.parse(JSON.stringify(g));
     const player = copy.players[0];
@@ -253,26 +250,30 @@ export default function WhotGame() {
   }
 
   // =========================
-  // MARKET
+  // MARKET (FIXED TURN RULE)
   // =========================
   function drawMarket() {
     const g = gameRef.current;
     if (!g || g.deck.length === 0) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
     copy.players[0].hand.push(copy.deck.pop());
 
-    addLog("🃏 You drew from market");
+    addLog("🃏 You drew from market → turn passed");
     playSound("move");
 
+    // 🔒 FORCE TURN SWITCH
     copy.turn = "bot";
+    copy.turnLocked = true;
+
     setGame(copy);
 
     setTimeout(botPlay, 500);
   }
 
   // =========================
-  // BOT
+  // BOT MOVE
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -289,6 +290,7 @@ export default function WhotGame() {
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
       copy.turn = "player";
+      copy.turnLocked = false;
       return setGame(copy);
     }
 
@@ -306,6 +308,8 @@ export default function WhotGame() {
     if (checkWinner(copy, setGame, setWinner, setRank)) return;
 
     copy.turn = "player";
+    copy.turnLocked = false;
+
     setGame(copy);
   }
 
