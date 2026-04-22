@@ -40,29 +40,22 @@ function playSound(type) {
 }
 
 // =========================
-// FIXED MATCH RULE (RESTORED FLEX SYSTEM)
+// FIXED MATCH RULE (STABLE FLEX NUMBER MATCH)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
 
-  // WHOT always valid
+  // WHOT override
   if (card.number === 14) return true;
 
-  // shape request after 14
+  // shape request mode
   if (requestedShape) {
     return card.shape === requestedShape;
   }
 
-  // =========================
-  // RESTORED FLEX RULE
-  // =========================
-  const sameShape = card.shape === top.shape;
-  const sameNumber = card.number === top.number;
-
-  // allow same number across different shapes
-  const flexibleNumberMatch = card.number === top.number;
-
-  return sameShape || sameNumber || flexibleNumberMatch;
+  // ✅ STABLE RULE:
+  // same shape OR same number (across all shapes allowed)
+  return card.shape === top.shape || card.number === top.number;
 }
 
 // =========================
@@ -169,7 +162,7 @@ function drawCard(card) {
 }
 
 // =========================
-// GAME
+// MAIN GAME
 // =========================
 export default function WhotGame() {
   const [game, setGame] = useState(null);
@@ -243,7 +236,6 @@ export default function WhotGame() {
     player.hand.splice(i, 1);
     copy.discard.push(card);
 
-    // 🟢 PLAYER NOTIFICATION (ADDED)
     addLog(`🟢 You played ${card.number} ${card.shape}`);
     playSound("move");
 
@@ -270,7 +262,6 @@ export default function WhotGame() {
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
 
-    // 🃏 MARKET NOTIFICATION (ADDED)
     addLog("🃏 You drew from market");
     playSound("move");
 
@@ -281,7 +272,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT MOVE
+  // BOT
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -304,7 +295,6 @@ export default function WhotGame() {
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
-    // 🤖 BOT NOTIFICATION (ADDED)
     addLog(`🤖 Bot played ${card.number} ${card.shape}`);
     playSound("move");
 
@@ -323,7 +313,6 @@ export default function WhotGame() {
 
   return (
     <div style={styles.bg}>
-      {/* WIN SCREEN */}
       {winner && (
         <div style={styles.overlay}>
           <h1>{winner === "player" ? "🎉 YOU WIN!" : "💀 BOT WINS!"}</h1>
