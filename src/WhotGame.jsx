@@ -4,7 +4,7 @@ const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 const NUMBERS = Array.from({ length: 14 }, (_, i) => i + 1);
 
 // =========================
-// GAME LOGIC
+// DECK
 // =========================
 function createDeck() {
   const deck = [];
@@ -29,7 +29,10 @@ function shuffle(array) {
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
-  if (requestedShape) return card.shape === requestedShape || card.number === 14;
+
+  if (requestedShape) {
+    return card.shape === requestedShape || card.number === 14;
+  }
 
   return (
     card.shape === top.shape ||
@@ -39,7 +42,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CANVAS CARD CACHE (IMPORTANT FIX)
+// CANVAS CARD ENGINE (CACHED)
 // =========================
 const cardCache = new Map();
 
@@ -94,7 +97,7 @@ function drawCard(card) {
 
     case "star":
       ctx.font = "18px Arial";
-      ctx.fillText("★", cx - 9, cy + 6);
+      ctx.fillText("★", cx - 8, cy + 6);
       break;
 
     case "cross":
@@ -103,13 +106,13 @@ function drawCard(card) {
       break;
   }
 
-  // WHOT card highlight
+  // WHOT (14) special card
   if (card.number === 14) {
     ctx.strokeStyle = "#facc15";
     ctx.lineWidth = 4;
     ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
     ctx.fillStyle = "#facc15";
-    ctx.fillText("WHOT", 22, 70);
+    ctx.fillText("WHOT", 20, 70);
   }
 
   const img = canvas.toDataURL();
@@ -118,25 +121,27 @@ function drawCard(card) {
 }
 
 // =========================
-// MAIN COMPONENT
+// MAIN GAME
 // =========================
 export default function WhotGame() {
   const [game, setGame] = useState(null);
+  const [started, setStarted] = useState(false);
   const [log, setLog] = useState([]);
+
   const gameRef = useRef(null);
 
-  const addLog = (msg) => setLog((p) => [...p, msg]);
-
-  // keep latest state in ref (fix bot async bugs)
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
 
-  useEffect(() => {
-    startGame();
-  }, []);
+  function addLog(msg) {
+    setLog((p) => [...p, msg]);
+  }
 
-  function startGame() {
+  // =========================
+  // START MATCH
+  // =========================
+  function startMatch() {
     const deck = createDeck();
 
     const newGame = {
@@ -152,98 +157,87 @@ export default function WhotGame() {
     };
 
     setGame(newGame);
-    addLog("Game started");
+    setStarted(true);
+    addLog("Match started vs Bot");
   }
 
-  function nextTurn(current) {
-    current.turn = current.turn === "player" ? "bot" : "player";
-  }
-
+  // =========================
+  // PLAYER MOVE
+  // =========================
   function playCard(index) {
-    const current = gameRef.current;
-    if (!current || current.turn !== "player") return;
+    const g = gameRef.current;
+    if (!g || g.turn !== "player") return;
 
-    const newGame = JSON.parse(JSON.stringify(current));
-    const player = newGame.players[0];
-    const top = newGame.discard.at(-1);
+    const copy = JSON.parse(JSON.stringify(g));
+    const player = copy.players[0];
+    const top = copy.discard.at(-1);
 
     const card = player.hand[index];
 
-    if (!isValidMove(card, top, newGame.requestedShape)) {
+    if (!isValidMove(card, top, copy.requestedShape)) {
       addLog("Invalid move");
       return;
     }
 
     player.hand.splice(index, 1);
-    newGame.discard.push(card);
+    copy.discard.push(card);
 
+    // WHOT effect
     if (card.number === 14) {
-      newGame.requestedShape =
+      copy.requestedShape =
         SHAPES[Math.floor(Math.random() * SHAPES.length)];
     }
 
     if (player.hand.length === 0) {
-      newGame.status = "player_won";
-      setGame(newGame);
+      copy.status = "player_won";
+      setGame(copy);
       return;
     }
 
-    nextTurn(newGame);
-    setGame(newGame);
+    copy.turn = "bot";
+    setGame(copy);
 
-    setTimeout(botPlay, 500);
+    setTimeout(botPlay, 600);
   }
 
-  function drawMarket() {
-    const current = gameRef.current;
-    if (!current) return;
-
-    const newGame = JSON.parse(JSON.stringify(current));
-
-    newGame.players[0].hand.push(newGame.deck.pop());
-    addLog("You drew from market");
-
-    nextTurn(newGame);
-    setGame(newGame);
-
-    setTimeout(botPlay, 500);
-  }
-
+  // =========================
+  // BOT MOVE
+  // =========================
   function botPlay() {
-    const current = gameRef.current;
-    if (!current) return;
+    const g = gameRef.current;
+    if (!g) return;
 
-    const newGame = JSON.parse(JSON.stringify(current));
-    const bot = newGame.players[1];
-    const top = newGame.discard.at(-1);
+    const copy = JSON.parse(JSON.stringify(g));
+    const bot = copy.players[1];
+    const top = copy.discard.at(-1);
 
     let moveIndex = bot.hand.findIndex((c) =>
-      isValidMove(c, top, newGame.requestedShape)
+      isValidMove(c, top, copy.requestedShape)
     );
 
     if (moveIndex === -1) {
-      bot.hand.push(newGame.deck.pop());
+      bot.hand.push(copy.deck.pop());
       addLog("Bot drew card");
-      nextTurn(newGame);
-      return setGame(newGame);
+      copy.turn = "player";
+      return setGame(copy);
     }
 
     const card = bot.hand.splice(moveIndex, 1)[0];
-    newGame.discard.push(card);
+    copy.discard.push(card);
 
     if (card.number === 14) {
-      newGame.requestedShape =
+      copy.requestedShape =
         SHAPES[Math.floor(Math.random() * SHAPES.length)];
     }
 
     if (bot.hand.length === 0) {
-      newGame.status = "bot_won";
-      setGame(newGame);
+      copy.status = "bot_won";
+      setGame(copy);
       return;
     }
 
-    nextTurn(newGame);
-    setGame(newGame);
+    copy.turn = "player";
+    setGame(copy);
   }
 
   const top = game?.discard?.at(-1);
@@ -251,20 +245,30 @@ export default function WhotGame() {
   return (
     <div style={styles.bg}>
       <div style={styles.container}>
-        <div style={styles.gameBox}>
+        <div style={styles.box}>
           <h2>WHOT GAME</h2>
 
-          {!game ? (
-            <p>Loading...</p>
-          ) : (
-            <>
-              <button onClick={drawMarket}>Draw Market</button>
+          {/* START MENU */}
+          {!started && (
+            <div style={{ marginBottom: 15 }}>
+              <button style={styles.btn} onClick={startMatch}>
+                ▶ Start Match vs Bot
+              </button>
 
-              <div style={styles.top}>
-                <img src={top ? drawCard(top) : ""} style={styles.card} />
+              <button style={styles.btn2}>
+                🌐 Play Online (Coming Soon)
+              </button>
+            </div>
+          )}
+
+          {/* TABLE */}
+          {started && game && (
+            <>
+              <div style={styles.table}>
+                🃏 Table Card:
+                {top && <img src={drawCard(top)} style={styles.card} />}
               </div>
 
-              <h3>Your Cards</h3>
               <div style={styles.hand}>
                 {game.players[0].hand.map((c, i) => (
                   <img
@@ -280,7 +284,7 @@ export default function WhotGame() {
         </div>
 
         <div style={styles.log}>
-          <h3>Log</h3>
+          <h3>Game Log</h3>
           {log.map((l, i) => (
             <p key={i}>• {l}</p>
           ))}
@@ -303,9 +307,22 @@ const styles = {
     color: "white"
   },
   container: { display: "flex", gap: 20 },
-  gameBox: { padding: 20, background: "#00000055", borderRadius: 12 },
+  box: { padding: 20, background: "#00000055", borderRadius: 12 },
   log: { width: 200 },
   hand: { display: "flex", flexWrap: "wrap", gap: 10 },
   card: { width: 70, height: 100, cursor: "pointer" },
-  top: { marginBottom: 10 }
+  table: { marginBottom: 10 },
+  btn: {
+    padding: 10,
+    background: "#10b981",
+    border: 0,
+    color: "white",
+    marginRight: 10
+  },
+  btn2: {
+    padding: 10,
+    background: "#2563eb",
+    border: 0,
+    color: "white"
+  }
 };
