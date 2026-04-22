@@ -3,11 +3,22 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
+// SOUND
+// =========================
+function playSound(type) {
+  const s = {
+    play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
+    draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
+    alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+  };
+  new Audio(s[type]).play().catch(() => {});
+}
+
+// =========================
 // DECK
 // =========================
 function createDeck() {
   const deck = [];
-
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
       if (i === 6 || i === 9) continue;
@@ -15,22 +26,19 @@ function createDeck() {
     }
     deck.push({ shape, number: 14 });
   }
-
   return deck.sort(() => Math.random() - 0.5);
 }
 
 // =========================
-// FIXED VALID MOVE (IMPORTANT)
+// FIXED VALID MOVE
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
 
   // WHOT request mode (14)
-  if (requestedShape) {
-    return card.shape === requestedShape;
-  }
+  if (requestedShape) return card.shape === requestedShape;
 
-  // ✔ FIX: SAME NUMBER WORKS ACROSS ALL SHAPES
+  // FIX: same number works across all shapes
   return card.shape === top.shape || card.number === top.number;
 }
 
@@ -47,6 +55,8 @@ function drawCard(card) {
   c.width = 90;
   c.height = 130;
   const ctx = c.getContext("2d");
+
+  ctx.clearRect(0, 0, 90, 130);
 
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, 90, 130);
@@ -117,7 +127,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULE ENGINE (ONLY HOLD ADDED)
+  // RULE ENGINE
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
@@ -139,13 +149,14 @@ export default function WhotGame() {
     }
 
     if (card.number === 14) {
-      copy.awaitingShape = true;
-      pushAlert("🟢 WHOT - choose shape");
+      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      setRequestedShape(shape);
+      pushAlert("🟢 REQUEST: " + shape);
     }
   }
 
   // =========================
-  // START GAME
+  // START
   // =========================
   function startMatch() {
     const deck = createDeck();
@@ -159,14 +170,15 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      holdLock: null,
-      awaitingShape: false
+      repeatTurn: null,
+
+      // ✔ FIX ADDITION
+      holdLock: null
     });
 
     setStarted(true);
     setLog([]);
     setAlerts([]);
-    setRequestedShape(null);
   }
 
   // =========================
@@ -186,9 +198,12 @@ export default function WhotGame() {
     player.hand.splice(i, 1);
     copy.discard.push(card);
 
+    playSound("play");
     applyRules(card, copy, true);
 
-    // HOLD (1)
+    addLog(`You played ${card.number}`);
+
+    // HOLD FIXED
     if (card.number === 1) {
       copy.turn = "player";
       setGame(copy);
@@ -211,7 +226,8 @@ export default function WhotGame() {
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
 
-    addLog("Drew from market");
+    playSound("draw");
+    addLog("Drew card");
 
     copy.turn = "bot";
     setGame(copy);
@@ -220,7 +236,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT (FIXED HOLD CHECK)
+  // BOT (FIXED HOLD BLOCK)
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -229,9 +245,14 @@ export default function WhotGame() {
     // ✔ HOLD BLOCK FIX
     if (g.holdLock === "player") {
       pushAlert("🤖 Bot blocked by HOLD");
-      const reset = { ...g, holdLock: null, turn: "player" };
-      setGame(reset);
-      return;
+
+      const reset = {
+        ...g,
+        holdLock: null,
+        turn: "player"
+      };
+
+      return setGame(reset);
     }
 
     const copy = JSON.parse(JSON.stringify(g));
@@ -251,14 +272,19 @@ export default function WhotGame() {
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
+    playSound("play");
     applyRules(card, copy, false);
 
-    // HOLD (bot)
+    addLog(`Bot played ${card.number}`);
+
+    // HOLD BOT SIDE
     if (card.number === 1) {
       copy.holdLock = "bot";
       pushAlert("🟡 BOT HOLD ACTIVE");
+
       copy.turn = "bot";
       setGame(copy);
+
       return setTimeout(botPlay, 400);
     }
 
@@ -269,43 +295,101 @@ export default function WhotGame() {
   const top = game?.discard?.at(-1);
 
   return (
-    <div style={{ padding: 20, background: "green", minHeight: "100vh" }}>
-      <button onClick={startMatch}>Start Game</button>
+    <div style={styles.bg}>
 
-      {started && game && (
-        <>
-          <div>
-            Market: {game.deck.length}
-          </div>
-
-          <div>
-            {top && <img src={drawCard(top)} style={{ width: 70 }} />}
-          </div>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {game.players[0].hand.map((c, i) => (
-              <img
-                key={i}
-                src={drawCard(c)}
-                style={{ width: 60 }}
-                onClick={() => playCard(i)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      <div>
-        {alerts.map((a, i) => (
-          <div key={i}>{a}</div>
-        ))}
+      <div style={styles.alertBox}>
+        {alerts.map((a, i) => <div key={i}>{a}</div>)}
       </div>
 
-      <div>
-        {log.map((l, i) => (
-          <div key={i}>• {l}</div>
-        ))}
+      <div style={styles.box}>
+        <h2>WHOT GAME</h2>
+
+        {!started && (
+          <button onClick={startMatch}>Start</button>
+        )}
+
+        {started && game && (
+          <>
+            <div style={styles.centerRow}>
+              <div style={styles.board}>
+                {top && <img src={drawCard(top)} style={styles.card} />}
+              </div>
+
+              <button onClick={drawMarket} style={styles.marketBtn}>
+                🃏 MARKET ({game.deck.length})
+              </button>
+            </div>
+
+            <div style={styles.hand}>
+              {game.players[0].hand.map((c, i) => (
+                <img
+                  key={i}
+                  src={drawCard(c)}
+                  style={styles.card}
+                  onClick={() => playCard(i)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={styles.history}>
+          {log.map((l, i) => <div key={i}>• {l}</div>)}
+        </div>
       </div>
     </div>
   );
 }
+
+// =========================
+// STYLES
+// =========================
+const styles = {
+  bg: {
+    minHeight: "100vh",
+    background: "green",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  box: {
+    width: 420,
+    padding: 10,
+    background: "#00000066",
+    color: "#fff",
+    borderRadius: 10
+  },
+  centerRow: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10
+  },
+  board: { transform: "scale(0.9)" },
+  marketBtn: {
+    padding: 10,
+    background: "gold",
+    fontWeight: "bold",
+    border: "none",
+    borderRadius: 6
+  },
+  hand: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+    justifyContent: "center"
+  },
+  card: { width: 55 },
+  alertBox: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    background: "#000000aa",
+    color: "yellow",
+    padding: 8
+  },
+  history: {
+    marginTop: 10,
+    fontSize: 12
+  }
+};
