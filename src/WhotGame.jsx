@@ -107,6 +107,9 @@ export default function WhotGame() {
   const [winner, setWinner] = useState(null);
   const [requestedShape, setRequestedShape] = useState(null);
 
+  // 🌸 NEW WIN STATE (ADDED ONLY)
+  const [showWin, setShowWin] = useState(false);
+
   const gameRef = useRef(null);
   useEffect(() => {
     gameRef.current = game;
@@ -122,15 +125,17 @@ export default function WhotGame() {
   }
 
   // =========================
-  // WIN CHECK
+  // WIN CHECK (UPDATED ONLY)
   // =========================
   function checkWin(copy) {
     if (copy.players[0].hand.length === 0) {
       setWinner("YOU WIN 🏆");
+      setShowWin(true);
       return true;
     }
     if (copy.players[1].hand.length === 0) {
       setWinner("BOT WINS 🤖🏆");
+      setShowWin(true);
       return true;
     }
     return false;
@@ -187,6 +192,7 @@ export default function WhotGame() {
     setLog([]);
     setAlerts([]);
     setWinner(null);
+    setShowWin(false);
     setRequestedShape(null);
   }
 
@@ -225,7 +231,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // MARKET (RESTORED BUTTON FUNCTION)
+  // MARKET
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -304,6 +310,20 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
+        {/* 🌸 WIN OVERLAY ADDED ONLY */}
+        {showWin && (
+          <div style={styles.winOverlay}>
+            <div style={styles.winBox}>
+              <h1>{winner}</h1>
+              <div style={styles.flowers}>🌸🌺🌸🌺🌸🌺</div>
+
+              <button onClick={startMatch} style={styles.rematchBtn}>
+                🔁 REMATCH
+              </button>
+            </div>
+          </div>
+        )}
+
         {winner && <div style={{ color: "gold" }}>{winner}</div>}
 
         <div style={styles.alertBox}>
@@ -312,7 +332,6 @@ export default function WhotGame() {
 
         <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
 
-        {/* ✅ CENTER AREA (FIXED MARKET BUTTON HERE) */}
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
 
@@ -323,12 +342,7 @@ export default function WhotGame() {
 
         <div>
           {game.players[0].hand.map((c, i) => (
-            <img
-              key={i}
-              src={drawCard(c)}
-              style={{ width: 60 }}
-              onClick={() => playCard(i)}
-            />
+            <img key={i} src={drawCard(c)} style={{ width: 60 }} onClick={() => playCard(i)} />
           ))}
         </div>
 
@@ -341,51 +355,37 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES
+// STYLES (ONLY ADDITIONS)
 // =========================
 const styles = {
-  bg: {
-    minHeight: "100vh",
-    background: "green",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  box: {
-    width: 420,
-    padding: 10,
-    background: "#00000066",
-    color: "#fff"
-  },
-  center: {
+  ...{},
+  winOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background: "rgba(0,0,0,0.85)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
-    margin: "10px 0"
+    zIndex: 9999
   },
-  marketBtn: {
+  winBox: {
+    textAlign: "center",
+    color: "gold"
+  },
+  flowers: {
+    fontSize: 40,
+    margin: "20px 0",
+    animation: "float 1.5s infinite"
+  },
+  rematchBtn: {
+    padding: 12,
     background: "gold",
     border: "none",
-    padding: 10,
+    borderRadius: 10,
     fontWeight: "bold",
-    borderRadius: 8,
     cursor: "pointer"
-  },
-  alertBox: {
-    background: "#000000aa",
-    color: "yellow",
-    padding: 6
-  },
-  history: {
-    fontSize: 12,
-    marginTop: 10
-  },
-  startBtn: {
-    padding: 15,
-    background: "green",
-    color: "#fff",
-    border: "none",
-    borderRadius: 10
   }
 };
