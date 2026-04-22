@@ -29,6 +29,36 @@ function shuffle(arr) {
 }
 
 // =========================
+// RULE ENGINE (FIX CORE)
+// =========================
+function applyCardEffect(card, state) {
+  const s = { ...state };
+
+  // 1 = HOLD ON
+  if (card.number === 1) {
+    s.skipTurn = false;
+    s.repeatTurn = true;
+  }
+
+  // 2 = PICK 2
+  if (card.number === 2) {
+    s.pendingPick = (s.pendingPick || 0) + 2;
+  }
+
+  // 8 = SUSPENSION
+  if (card.number === 8) {
+    s.skipTurn = true;
+  }
+
+  // 14 = REQUEST SHAPE
+  if (card.number === 14) {
+    s.awaitingShape = true;
+  }
+
+  return s;
+}
+
+// =========================
 // VALID MOVE
 // =========================
 function isValidMove(card, top, requestedShape) {
@@ -100,7 +130,6 @@ export default function WhotGame() {
   const [started, setStarted] = useState(false);
   const [log, setLog] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
-  const [awaitingShape, setAwaitingShape] = useState(false);
 
   const gameRef = useRef(null);
   useEffect(() => { gameRef.current = game; }, [game]);
@@ -122,13 +151,16 @@ export default function WhotGame() {
       ],
       deck,
       discard: [deck.pop()],
-      turn: "player"
+      turn: "player",
+      pendingPick: 0,
+      skipTurn: false,
+      repeatTurn: false,
+      awaitingShape: false
     };
 
     setGame(g);
     setStarted(true);
     setRequestedShape(null);
-    setAwaitingShape(false);
     setLog([]);
   }
 
@@ -139,9 +171,9 @@ export default function WhotGame() {
     const g = gameRef.current;
     if (!g || g.turn !== "player") return;
 
-    const copy = JSON.parse(JSON.stringify(g));
-    const player = copy.players[0];
-    const top = copy.discard.at(-1);
+    const state = JSON.parse(JSON.stringify(g));
+    const player = state.players[0];
+    const top = state.discard.at(-1);
     const card = player.hand[i];
 
     if (!isValidMove(card, top, requestedShape)) {
@@ -150,18 +182,36 @@ export default function WhotGame() {
     }
 
     player.hand.splice(i, 1);
-    copy.discard.push(card);
+    state.discard.push(card);
 
     addLog(`🟢 You played ${card.number}`);
 
+    // APPLY EFFECT (FIXED CORE)
+    const newState = applyCardEffect(card, state);
+
+    // HANDLE 14 SHAPE SELECTION
     if (card.number === 14) {
-      setAwaitingShape(true);
-      setGame(copy);
+      setGame(newState);
       return;
     }
 
-    copy.turn = "bot";
-    setGame(copy);
+    // PICK 2
+    if (newState.pendingPick > 0) {
+      setGame(newState);
+      setTimeout(botPlay, 400);
+      return;
+    }
+
+    // TURN LOGIC
+    if (card.number === 1) {
+      newState.turn = "player";
+    } else if (card.number === 8) {
+      newState.turn = "player";
+    } else {
+      newState.turn = "bot";
+    }
+
+    setGame(newState);
 
     setTimeout(botPlay, 400);
   }
@@ -173,29 +223,30 @@ export default function WhotGame() {
     const g = gameRef.current;
     if (!g) return;
 
-    const copy = JSON.parse(JSON.stringify(g));
-    copy.players[0].hand.push(copy.deck.pop());
+    const state = JSON.parse(JSON.stringify(g));
+    state.players[0].hand.push(state.deck.pop());
 
-    addLog("🃏 Drew from market");
-    copy.turn = "bot";
+    addLog("🃏 Drew card");
 
-    setGame(copy);
+    state.turn = "bot";
+    setGame(state);
+
     setTimeout(botPlay, 400);
   }
 
   // =========================
-  // SHAPE SELECT
+  // SHAPE SELECT (14)
   // =========================
   function chooseShape(shape) {
     const g = gameRef.current;
     if (!g) return;
 
     setRequestedShape(shape);
-    setAwaitingShape(false);
-
     addLog(`🎯 Shape: ${shape}`);
 
-    setGame({ ...g, turn: "bot" });
+    const state = { ...g, turn: "bot", awaitingShape: false };
+    setGame(state);
+
     setTimeout(botPlay, 400);
   }
 
@@ -206,29 +257,36 @@ export default function WhotGame() {
     const g = gameRef.current;
     if (!g) return;
 
-    const copy = JSON.parse(JSON.stringify(g));
-    const bot = copy.players[1];
-    const top = copy.discard.at(-1);
+    const state = JSON.parse(JSON.stringify(g));
+    const bot = state.players[1];
+    const top = state.discard.at(-1);
 
     let move = bot.hand.findIndex(c =>
       isValidMove(c, top, requestedShape)
     );
 
     if (move === -1) {
-      bot.hand.push(copy.deck.pop());
+      bot.hand.push(state.deck.pop());
       addLog("🤖 Bot drew");
-      copy.turn = "player";
-      setGame(copy);
+      state.turn = "player";
+      setGame(state);
       return;
     }
 
     const card = bot.hand.splice(move, 1)[0];
-    copy.discard.push(card);
+    state.discard.push(card);
 
     addLog(`🤖 Bot played ${card.number}`);
 
-    copy.turn = "player";
-    setGame(copy);
+    const newState = applyCardEffect(card, state);
+
+    if (card.number === 14) {
+      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      setRequestedShape(shape);
+    }
+
+    state.turn = "player";
+    setGame(newState);
   }
 
   const top = game?.discard?.at(-1);
@@ -238,17 +296,9 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {/* 🟡 HUD (NEW ADDITION) */}
-        {started && game && (
-          <div style={styles.hud}>
-            🤖 Bot Cards: {game.players[1].hand.length} | 
-            🃏 Market: {game.deck.length}
-          </div>
-        )}
-
         {!started && (
           <button onClick={startMatch} style={styles.btn}>
-            Start Game
+            Start
           </button>
         )}
 
@@ -262,9 +312,8 @@ export default function WhotGame() {
               {top && <img src={drawCard(top)} style={styles.card} />}
             </div>
 
-            {awaitingShape && (
+            {game.awaitingShape && (
               <div>
-                <p>Choose Shape:</p>
                 {SHAPES.map(s => (
                   <button key={s} onClick={() => chooseShape(s)}>
                     {s}
@@ -310,23 +359,7 @@ const styles = {
     background: "#00000066",
     color: "#fff"
   },
-  hand: {
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap"
-  },
-  card: {
-    width: 70
-  },
-  btn: {
-    padding: 10,
-    margin: 5
-  },
-  hud: {
-    marginBottom: 10,
-    padding: 8,
-    background: "#00000088",
-    borderRadius: 6,
-    fontWeight: "bold"
-  }
+  hand: { display: "flex", gap: 10, flexWrap: "wrap" },
+  card: { width: 70 },
+  btn: { padding: 10, margin: 5 }
 };
