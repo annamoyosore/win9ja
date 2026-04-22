@@ -3,6 +3,21 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
+// AUDIO
+// =========================
+const playSound = (type) => {
+  const sounds = {
+    play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
+    draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
+    win: "https://actions.google.com/sounds/v1/cartoon/concussive_drum_hit.ogg"
+  };
+
+  const audio = new Audio(sounds[type]);
+  audio.volume = 0.6;
+  audio.play();
+};
+
+// =========================
 // DECK
 // =========================
 function createDeck() {
@@ -13,49 +28,10 @@ function createDeck() {
       if (i === 6 || i === 9) continue;
       deck.push({ shape, number: i });
     }
-
     deck.push({ shape, number: 14 });
   }
 
-  return shuffle(deck);
-}
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-// =========================
-// RULE ENGINE (FIX CORE)
-// =========================
-function applyCardEffect(card, state) {
-  const s = { ...state };
-
-  // 1 = HOLD ON
-  if (card.number === 1) {
-    s.skipTurn = false;
-    s.repeatTurn = true;
-  }
-
-  // 2 = PICK 2
-  if (card.number === 2) {
-    s.pendingPick = (s.pendingPick || 0) + 2;
-  }
-
-  // 8 = SUSPENSION
-  if (card.number === 8) {
-    s.skipTurn = true;
-  }
-
-  // 14 = REQUEST SHAPE
-  if (card.number === 14) {
-    s.awaitingShape = true;
-  }
-
-  return s;
+  return deck.sort(() => Math.random() - 0.5);
 }
 
 // =========================
@@ -63,11 +39,7 @@ function applyCardEffect(card, state) {
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
-
-  if (requestedShape) {
-    return card.shape === requestedShape;
-  }
-
+  if (requestedShape) return card.shape === requestedShape;
   return card.shape === top.shape || card.number === top.number;
 }
 
@@ -123,6 +95,17 @@ function drawCard(card) {
 }
 
 // =========================
+// FLOWERS / CONFETTI
+// =========================
+function Confetti() {
+  return (
+    <div style={styles.confetti}>
+      {"🎊🎉🌸🌺🌼✨".repeat(30)}
+    </div>
+  );
+}
+
+// =========================
 // GAME
 // =========================
 export default function WhotGame() {
@@ -130,6 +113,8 @@ export default function WhotGame() {
   const [started, setStarted] = useState(false);
   const [log, setLog] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
+  const [awaitingShape, setAwaitingShape] = useState(false);
+  const [winner, setWinner] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => { gameRef.current = game; }, [game]);
@@ -139,81 +124,67 @@ export default function WhotGame() {
   }
 
   // =========================
+  // WIN CHECK
+  // =========================
+  function checkWin(state, playerIndex) {
+    if (state.players[playerIndex].hand.length === 0) {
+      setWinner(playerIndex);
+      playSound("win");
+      return true;
+    }
+    return false;
+  }
+
+  // =========================
   // START
   // =========================
   function startMatch() {
     const deck = createDeck();
 
-    const g = {
+    setGame({
       players: [
         { hand: deck.splice(0, 6) },
         { hand: deck.splice(0, 6) }
       ],
       deck,
       discard: [deck.pop()],
-      turn: "player",
-      pendingPick: 0,
-      skipTurn: false,
-      repeatTurn: false,
-      awaitingShape: false
-    };
+      turn: "player"
+    });
 
-    setGame(g);
     setStarted(true);
-    setRequestedShape(null);
+    setWinner(null);
     setLog([]);
   }
 
   // =========================
-  // PLAYER MOVE
+  // PLAYER
   // =========================
   function playCard(i) {
     const g = gameRef.current;
     if (!g || g.turn !== "player") return;
 
-    const state = JSON.parse(JSON.stringify(g));
-    const player = state.players[0];
-    const top = state.discard.at(-1);
+    const copy = JSON.parse(JSON.stringify(g));
+    const player = copy.players[0];
+    const top = copy.discard.at(-1);
     const card = player.hand[i];
 
-    if (!isValidMove(card, top, requestedShape)) {
-      addLog("❌ Invalid move");
-      return;
-    }
+    if (!isValidMove(card, top, requestedShape)) return;
 
     player.hand.splice(i, 1);
-    state.discard.push(card);
+    copy.discard.push(card);
 
-    addLog(`🟢 You played ${card.number}`);
+    playSound("play");
 
-    // APPLY EFFECT (FIXED CORE)
-    const newState = applyCardEffect(card, state);
-
-    // HANDLE 14 SHAPE SELECTION
-    if (card.number === 14) {
-      setGame(newState);
+    if (player.hand.length === 0) {
+      setGame(copy);
+      checkWin(copy, 0);
       return;
     }
 
-    // PICK 2
-    if (newState.pendingPick > 0) {
-      setGame(newState);
-      setTimeout(botPlay, 400);
-      return;
-    }
+    copy.turn = "bot";
+    setGame(copy);
 
-    // TURN LOGIC
-    if (card.number === 1) {
-      newState.turn = "player";
-    } else if (card.number === 8) {
-      newState.turn = "player";
-    } else {
-      newState.turn = "bot";
-    }
-
-    setGame(newState);
-
-    setTimeout(botPlay, 400);
+    setTimeout(botPlay, 500);
   }
 
   // =========================
@@ -223,31 +194,15 @@ export default function WhotGame() {
     const g = gameRef.current;
     if (!g) return;
 
-    const state = JSON.parse(JSON.stringify(g));
-    state.players[0].hand.push(state.deck.pop());
+    const copy = JSON.parse(JSON.stringify(g));
+    copy.players[0].hand.push(copy.deck.pop());
 
-    addLog("🃏 Drew card");
+    playSound("draw");
 
-    state.turn = "bot";
-    setGame(state);
+    copy.turn = "bot";
+    setGame(copy);
 
-    setTimeout(botPlay, 400);
-  }
-
-  // =========================
-  // SHAPE SELECT (14)
-  // =========================
-  function chooseShape(shape) {
-    const g = gameRef.current;
-    if (!g) return;
-
-    setRequestedShape(shape);
-    addLog(`🎯 Shape: ${shape}`);
-
-    const state = { ...g, turn: "bot", awaitingShape: false };
-    setGame(state);
-
-    setTimeout(botPlay, 400);
+    setTimeout(botPlay, 500);
   }
 
   // =========================
@@ -257,87 +212,75 @@ export default function WhotGame() {
     const g = gameRef.current;
     if (!g) return;
 
-    const state = JSON.parse(JSON.stringify(g));
-    const bot = state.players[1];
-    const top = state.discard.at(-1);
+    const copy = JSON.parse(JSON.stringify(g));
+    const bot = copy.players[1];
+    const top = copy.discard.at(-1);
 
     let move = bot.hand.findIndex(c =>
       isValidMove(c, top, requestedShape)
     );
 
     if (move === -1) {
-      bot.hand.push(state.deck.pop());
-      addLog("🤖 Bot drew");
-      state.turn = "player";
-      setGame(state);
-      return;
+      bot.hand.push(copy.deck.pop());
+      copy.turn = "player";
+      return setGame(copy);
     }
 
     const card = bot.hand.splice(move, 1)[0];
-    state.discard.push(card);
+    copy.discard.push(card);
 
-    addLog(`🤖 Bot played ${card.number}`);
+    playSound("play");
 
-    const newState = applyCardEffect(card, state);
-
-    if (card.number === 14) {
-      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-      setRequestedShape(shape);
+    if (bot.hand.length === 0) {
+      setGame(copy);
+      checkWin(copy, 1);
+      return;
     }
 
-    state.turn = "player";
-    setGame(newState);
+    copy.turn = "player";
+    setGame(copy);
   }
 
   const top = game?.discard?.at(-1);
 
   return (
     <div style={styles.bg}>
+      {winner !== null && (
+        <>
+          <Confetti />
+          <div style={styles.win}>
+            🏆 Player {winner === 0 ? "You" : "Bot"} Wins!
+          </div>
+        </>
+      )}
+
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
         {!started && (
-          <button onClick={startMatch} style={styles.btn}>
-            Start
-          </button>
+          <button onClick={startMatch}>Start</button>
         )}
 
         {started && game && (
           <>
-            <button onClick={drawMarket} style={styles.btn}>
-              Market
-            </button>
+            <button onClick={drawMarket}>Market</button>
 
             <div>
-              {top && <img src={drawCard(top)} style={styles.card} />}
+              {top && <img src={drawCard(top)} style={{ width: 70 }} />}
             </div>
-
-            {game.awaitingShape && (
-              <div>
-                {SHAPES.map(s => (
-                  <button key={s} onClick={() => chooseShape(s)}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
 
             <div style={styles.hand}>
               {game.players[0].hand.map((c, i) => (
                 <img
                   key={i}
                   src={drawCard(c)}
-                  style={styles.card}
+                  style={{ width: 70 }}
                   onClick={() => playCard(i)}
                 />
               ))}
             </div>
           </>
         )}
-
-        <div>
-          {log.map((l, i) => <p key={i}>{l}</p>)}
-        </div>
       </div>
     </div>
   );
@@ -352,14 +295,28 @@ const styles = {
     background: "green",
     display: "flex",
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    position: "relative"
   },
   box: {
     padding: 20,
     background: "#00000066",
     color: "#fff"
   },
-  hand: { display: "flex", gap: 10, flexWrap: "wrap" },
-  card: { width: 70 },
-  btn: { padding: 10, margin: 5 }
+  hand: {
+    display: "flex",
+    gap: 10
+  },
+  win: {
+    position: "absolute",
+    top: "30%",
+    fontSize: 40,
+    color: "gold",
+    fontWeight: "bold"
+  },
+  confetti: {
+    position: "absolute",
+    fontSize: 30,
+    animation: "fall 2s linear infinite"
+  }
 };
