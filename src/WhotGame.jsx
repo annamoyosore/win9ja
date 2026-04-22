@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// SOUND (UNCHANGED)
+// SOUND
 // =========================
 function playSound(type) {
   const s = {
@@ -15,10 +15,24 @@ function playSound(type) {
 }
 
 // =========================
+// LAST CARD WARNING (NEW FEATURE)
+// =========================
+function checkLastCardWarning(playerIndex, copy) {
+  const player = copy.players[playerIndex];
+
+  if (player.hand.length === 1) {
+    pushAlert(`⚠️ ${playerIndex === 0 ? "YOU" : "BOT"}: LAST CARD!`);
+    addLog(`${playerIndex === 0 ? "You" : "Bot"} is on LAST CARD!`);
+    playSound("alert");
+  }
+}
+
+// =========================
 // DECK
 // =========================
 function createDeck() {
   const deck = [];
+
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
       if (i === 6 || i === 9) continue;
@@ -26,6 +40,7 @@ function createDeck() {
     }
     deck.push({ shape, number: 14 });
   }
+
   return deck.sort(() => Math.random() - 0.5);
 }
 
@@ -39,7 +54,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CARD FRONT RENDER
+// CARD RENDER
 // =========================
 const cache = new Map();
 
@@ -95,36 +110,6 @@ function drawCard(card) {
 }
 
 // =========================
-// 🂠 CARD BACK (NEW FEATURE)
-// =========================
-const backCache = new Map();
-
-function drawCardBack() {
-  const key = "card_back";
-  if (backCache.has(key)) return backCache.get(key);
-
-  const c = document.createElement("canvas");
-  c.width = 90;
-  c.height = 130;
-  const ctx = c.getContext("2d");
-
-  ctx.fillStyle = "#1f2937";
-  ctx.fillRect(0, 0, 90, 130);
-
-  ctx.strokeStyle = "gold";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(2, 2, 86, 126);
-
-  ctx.fillStyle = "gold";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("WHOT", 15, 70);
-
-  const img = c.toDataURL();
-  backCache.set(key, img);
-  return img;
-}
-
-// =========================
 // GAME
 // =========================
 export default function WhotGame() {
@@ -134,7 +119,9 @@ export default function WhotGame() {
   const [winner, setWinner] = useState(null);
 
   const gameRef = useRef(null);
-  useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => {
+    gameRef.current = game;
+  }, [game]);
 
   function addLog(msg) {
     setLog(p => [...p, msg].slice(-10));
@@ -177,6 +164,10 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     addLog(`You played ${card.number}`);
+
+    // 🔥 LAST CARD CHECK (PLAYER)
+    checkLastCardWarning(0, copy);
+
     setGame(copy);
 
     setTimeout(botPlay, 1200);
@@ -222,6 +213,10 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     addLog(`Bot played ${card.number}`);
+
+    // 🔥 LAST CARD CHECK (BOT)
+    checkLastCardWarning(1, copy);
+
     setGame(copy);
   }
 
@@ -243,40 +238,21 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {/* ================= PLAYERS + COINS ================= */}
         <div style={styles.playersRow}>
           <div>🧑 YOU 🪙 {game.players[0].coins}</div>
           <div>🤖 BOT 🪙 {game.players[1].coins}</div>
         </div>
 
-        {/* ================= BOT CARD COUNT + BACK CARDS FIX ================= */}
-        <div style={{ marginTop: 10 }}>
-          🤖 Bot Cards: {game.players[1].hand.length}
-        </div>
-
-        <div style={styles.botHand}>
-          {game.players[1].hand.map((_, i) => (
-            <img
-              key={i}
-              src={drawCardBack()}
-              style={{ width: 45 }}
-            />
-          ))}
-        </div>
-
-        {/* ================= CENTER CARD ================= */}
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
         </div>
 
-        {/* ================= MARKET BUTTON ================= */}
         <div style={styles.marketWrap}>
           <button onClick={drawMarket} style={styles.marketBtn}>
             🟡 GOLD MARKET ({game.deck.length})
           </button>
         </div>
 
-        {/* ================= PLAYER HAND ================= */}
         <div style={styles.hand}>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -288,7 +264,6 @@ export default function WhotGame() {
           ))}
         </div>
 
-        {/* ================= LOG ================= */}
         <div style={styles.history}>
           {log.map((l, i) => <div key={i}>• {l}</div>)}
         </div>
@@ -318,13 +293,6 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     padding: "0 10px"
-  },
-  botHand: {
-    display: "flex",
-    gap: 3,
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: 5
   },
   center: {
     display: "flex",
