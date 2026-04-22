@@ -19,6 +19,7 @@ function playSound(type) {
 // =========================
 function createDeck() {
   const deck = [];
+
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
       if (i === 6 || i === 9) continue;
@@ -26,6 +27,7 @@ function createDeck() {
     }
     deck.push({ shape, number: 14 });
   }
+
   return deck.sort(() => Math.random() - 0.5);
 }
 
@@ -39,7 +41,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CARD DRAW
+// CARD RENDER
 // =========================
 const cache = new Map();
 
@@ -103,6 +105,7 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [winner, setWinner] = useState(null);
+  const [requestedShape, setRequestedShape] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -119,12 +122,26 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULES (UPDATED 14 FIXED)
+  // WIN CHECK
+  // =========================
+  function checkWin(copy) {
+    if (copy.players[0].hand.length === 0) {
+      setWinner("YOU WIN 🏆");
+      return true;
+    }
+    if (copy.players[1].hand.length === 0) {
+      setWinner("BOT WINS 🤖🏆");
+      return true;
+    }
+    return false;
+  }
+
+  // =========================
+  // RULES
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
-    // PICK 2
     if (card.number === 2) {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.players[opponent].hand.push(copy.deck.pop());
@@ -132,13 +149,11 @@ export default function WhotGame() {
       pushAlert("🔴 PICK 2");
     }
 
-    // SUSPEND
     if (card.number === 8) {
       copy.skipNext = opponent;
       pushAlert("🔵 SUSPEND");
     }
 
-    // 🟢 14 = GENERAL MARKET (FIXED)
     if (card.number === 14) {
       copy.players.forEach((p, idx) => {
         if (idx !== opponent) {
@@ -147,7 +162,7 @@ export default function WhotGame() {
       });
 
       copy.skipNext = opponent;
-      pushAlert("🟢 GENERAL MARKET (DRAW 1 + SKIP)");
+      pushAlert("🟢 GENERAL MARKET");
     }
   }
 
@@ -172,37 +187,23 @@ export default function WhotGame() {
     setLog([]);
     setAlerts([]);
     setWinner(null);
+    setRequestedShape(null);
   }
 
   const top = game?.discard?.at(-1);
-
-  // =========================
-  // WIN CHECK (FIXED)
-  // =========================
-  function checkWin(copy) {
-    if (copy.players[0].hand.length === 0) {
-      setWinner("YOU WIN 🏆");
-      return true;
-    }
-    if (copy.players[1].hand.length === 0) {
-      setWinner("BOT WINS 🤖🏆");
-      return true;
-    }
-    return false;
-  }
 
   // =========================
   // PLAYER MOVE
   // =========================
   function playCard(i) {
     const g = gameRef.current;
-    if (!g || g.turn !== "player" || winner) return;
+    if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
     const player = copy.players[0];
     const card = player.hand[i];
 
-    if (!isValidMove(card, top)) {
+    if (!isValidMove(card, top, requestedShape)) {
       pushAlert("❌ Invalid move");
       return;
     }
@@ -211,7 +212,6 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
-
     applyRules(card, copy, true);
 
     addLog(`You played ${card.number}`);
@@ -221,7 +221,8 @@ export default function WhotGame() {
     copy.turn = "bot";
     setGame(copy);
 
-    setTimeout(botPlay, 400);
+    // ⏱️ FIXED: BOT THINKING TIME = 5 SECONDS
+    setTimeout(botPlay, 5000);
   }
 
   // =========================
@@ -229,7 +230,7 @@ export default function WhotGame() {
   // =========================
   function drawMarket() {
     const g = gameRef.current;
-    if (!g) return;
+    if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
@@ -240,7 +241,8 @@ export default function WhotGame() {
     copy.turn = "bot";
     setGame(copy);
 
-    setTimeout(botPlay, 400);
+    // ⏱️ FIXED: BOT THINKING TIME = 5 SECONDS
+    setTimeout(botPlay, 5000);
   }
 
   // =========================
@@ -262,7 +264,7 @@ export default function WhotGame() {
     const bot = copy.players[1];
 
     let move = bot.hand.findIndex(c =>
-      isValidMove(c, top)
+      isValidMove(c, top, requestedShape)
     );
 
     if (move === -1) {
@@ -276,7 +278,6 @@ export default function WhotGame() {
     copy.discard.push(card);
 
     playSound("play");
-
     applyRules(card, copy, false);
 
     addLog(`Bot played ${card.number}`);
@@ -305,11 +306,7 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {winner && (
-          <div style={{ color: "gold", fontSize: 20 }}>
-            {winner}
-          </div>
-        )}
+        {winner && <div style={{ color: "gold" }}>{winner}</div>}
 
         <div style={styles.alertBox}>
           {alerts.map((a, i) => <div key={i}>{a}</div>)}
@@ -341,7 +338,7 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES (UNCHANGED)
+// STYLES
 // =========================
 const styles = {
   bg: {
