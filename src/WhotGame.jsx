@@ -3,18 +3,17 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// DECK (WITH YOUR RULES)
+// DECK
 // =========================
 function createDeck() {
   const deck = [];
 
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
-      if (i === 6 || i === 9) continue; // removed as requested
+      if (i === 6 || i === 9) continue;
       deck.push({ shape, number: i });
     }
 
-    // WHOT 14 (shape-based special card)
     deck.push({ shape, number: 14 });
   }
 
@@ -30,7 +29,7 @@ function shuffle(arr) {
 }
 
 // =========================
-// VALID MOVE RULE
+// VALID MOVE
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
@@ -43,7 +42,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CANVAS CARD
+// CARD RENDER
 // =========================
 const cache = new Map();
 
@@ -102,7 +101,6 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
   const [awaitingShape, setAwaitingShape] = useState(false);
-  const [winner, setWinner] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => { gameRef.current = game; }, [game]);
@@ -111,6 +109,9 @@ export default function WhotGame() {
     setLog((p) => [...p, msg].slice(-2));
   }
 
+  // =========================
+  // START
+  // =========================
   function startMatch() {
     const deck = createDeck();
 
@@ -126,46 +127,9 @@ export default function WhotGame() {
 
     setGame(g);
     setStarted(true);
-    setWinner(null);
     setRequestedShape(null);
     setAwaitingShape(false);
     setLog([]);
-  }
-
-  // =========================
-  // APPLY EFFECTS
-  // =========================
-  function applyEffects(card, g) {
-    if (card.number === 1) {
-      g.turn = g.turn; // hold on (repeat turn)
-    }
-
-    if (card.number === 8) {
-      g.skip = true;
-    }
-
-    if (card.number === 14) {
-      setAwaitingShape(true);
-      return true; // pause flow until shape selected
-    }
-
-    return false;
-  }
-
-  // =========================
-  // SHAPE SELECT AFTER 14
-  // =========================
-  function chooseShape(shape) {
-    const g = gameRef.current;
-    if (!g) return;
-
-    setRequestedShape(shape);
-    setAwaitingShape(false);
-
-    addLog(`🎯 Shape set to ${shape}`);
-
-    setGame({ ...g, turn: "bot" });
-    setTimeout(botPlay, 400);
   }
 
   // =========================
@@ -191,19 +155,7 @@ export default function WhotGame() {
     addLog(`🟢 You played ${card.number}`);
 
     if (card.number === 14) {
-      setGame(copy);
       setAwaitingShape(true);
-      return;
-    }
-
-    if (card.number === 8) {
-      copy.turn = "player";
-      setGame(copy);
-      return;
-    }
-
-    if (card.number === 1) {
-      copy.turn = "player";
       setGame(copy);
       return;
     }
@@ -211,11 +163,11 @@ export default function WhotGame() {
     copy.turn = "bot";
     setGame(copy);
 
-    setTimeout(botPlay, 500);
+    setTimeout(botPlay, 400);
   }
 
   // =========================
-  // MARKET DRAW
+  // MARKET
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -224,15 +176,31 @@ export default function WhotGame() {
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
 
-    addLog("🃏 Drew card");
+    addLog("🃏 Drew from market");
     copy.turn = "bot";
 
     setGame(copy);
-    setTimeout(botPlay, 500);
+    setTimeout(botPlay, 400);
   }
 
   // =========================
-  // BOT LOGIC
+  // SHAPE SELECT
+  // =========================
+  function chooseShape(shape) {
+    const g = gameRef.current;
+    if (!g) return;
+
+    setRequestedShape(shape);
+    setAwaitingShape(false);
+
+    addLog(`🎯 Shape: ${shape}`);
+
+    setGame({ ...g, turn: "bot" });
+    setTimeout(botPlay, 400);
+  }
+
+  // =========================
+  // BOT
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -259,24 +227,6 @@ export default function WhotGame() {
 
     addLog(`🤖 Bot played ${card.number}`);
 
-    if (card.number === 14) {
-      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-      setRequestedShape(shape);
-      addLog(`🎯 Bot requested ${shape}`);
-    }
-
-    if (card.number === 8) {
-      copy.turn = "bot";
-      setGame(copy);
-      return;
-    }
-
-    if (card.number === 1) {
-      copy.turn = "bot";
-      setGame(copy);
-      return;
-    }
-
     copy.turn = "player";
     setGame(copy);
   }
@@ -288,9 +238,17 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
+        {/* 🟡 HUD (NEW ADDITION) */}
+        {started && game && (
+          <div style={styles.hud}>
+            🤖 Bot Cards: {game.players[1].hand.length} | 
+            🃏 Market: {game.deck.length}
+          </div>
+        )}
+
         {!started && (
           <button onClick={startMatch} style={styles.btn}>
-            Start
+            Start Game
           </button>
         )}
 
@@ -300,7 +258,7 @@ export default function WhotGame() {
               Market
             </button>
 
-            <div style={styles.table}>
+            <div>
               {top && <img src={drawCard(top)} style={styles.card} />}
             </div>
 
@@ -347,8 +305,28 @@ const styles = {
     justifyContent: "center",
     alignItems: "center"
   },
-  box: { padding: 20, background: "#00000066", color: "#fff" },
-  hand: { display: "flex", gap: 10, flexWrap: "wrap" },
-  card: { width: 70 },
-  btn: { padding: 10, margin: 5 }
+  box: {
+    padding: 20,
+    background: "#00000066",
+    color: "#fff"
+  },
+  hand: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap"
+  },
+  card: {
+    width: 70
+  },
+  btn: {
+    padding: 10,
+    margin: 5
+  },
+  hud: {
+    marginBottom: 10,
+    padding: 8,
+    background: "#00000088",
+    borderRadius: 6,
+    fontWeight: "bold"
+  }
 };
