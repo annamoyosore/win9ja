@@ -6,12 +6,12 @@ const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 // SOUND
 // =========================
 function playSound(type) {
-  const s = {
+  const sounds = {
     play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
     draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
     alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
   };
-  new Audio(s[type]).play().catch(() => {});
+  new Audio(sounds[type]).play().catch(() => {});
 }
 
 // =========================
@@ -52,8 +52,6 @@ function drawCard(card) {
   c.height = 130;
   const ctx = c.getContext("2d");
 
-  ctx.clearRect(0, 0, 90, 130);
-
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, 90, 130);
 
@@ -73,9 +71,7 @@ function drawCard(card) {
     ctx.fill();
   }
 
-  if (card.shape === "square") {
-    ctx.fillRect(cx - 14, cy - 14, 28, 28);
-  }
+  if (card.shape === "square") ctx.fillRect(cx - 14, cy - 14, 28, 28);
 
   if (card.shape === "triangle") {
     ctx.beginPath();
@@ -107,6 +103,7 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
+  const [awaitingShape, setAwaitingShape] = useState(false);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -129,8 +126,8 @@ export default function WhotGame() {
     const opponent = isPlayer ? 1 : 0;
 
     if (card.number === 1) {
-      copy.repeatTurn = isPlayer ? 0 : 1;
-      pushAlert("🟡 HOLD / REPEAT TURN");
+      copy.hold = isPlayer;
+      pushAlert("🟡 HOLD ACTIVE");
     }
 
     if (card.number === 2) {
@@ -145,14 +142,13 @@ export default function WhotGame() {
     }
 
     if (card.number === 14) {
-      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-      setRequestedShape(shape);
-      pushAlert("🟢 REQUEST: " + shape);
+      copy.awaitingShape = true;
+      pushAlert("🟢 CHOOSE SHAPE");
     }
   }
 
   // =========================
-  // START
+  // START GAME
   // =========================
   function startMatch() {
     const deck = createDeck();
@@ -166,7 +162,8 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      repeatTurn: null
+      hold: null,
+      awaitingShape: false
     });
 
     setStarted(true);
@@ -175,7 +172,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // PLAYER MOVE
+  // PLAY CARD
   // =========================
   function playCard(i) {
     const g = gameRef.current;
@@ -194,17 +191,15 @@ export default function WhotGame() {
     playSound("play");
     applyRules(card, copy, true);
 
-    addLog(`You played ${card.number}`);
-
-    // HOLD (CARD 1)
+    // HOLD
     if (card.number === 1) {
       copy.turn = "player";
       setGame(copy);
       return;
     }
 
-    copy.turn = "bot";
     setGame(copy);
+    copy.turn = "bot";
 
     setTimeout(botPlay, 400);
   }
@@ -229,7 +224,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT (FIXED RULE FLOW)
+  // BOT
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -237,7 +232,6 @@ export default function WhotGame() {
 
     const copy = JSON.parse(JSON.stringify(g));
 
-    // SUSPENSION (8)
     if (copy.skipNext === 1) {
       pushAlert("🤖 Bot skipped");
       copy.skipNext = null;
@@ -252,21 +246,10 @@ export default function WhotGame() {
       isValidMove(c, top, requestedShape)
     );
 
-    // NO MOVE → DRAW → RETRY → PASS
     if (move === -1) {
-      const drawn = copy.deck.pop();
-      bot.hand.push(drawn);
-
-      pushAlert("🤖 Bot drew");
-
-      move = bot.hand.findIndex(c =>
-        isValidMove(c, top, requestedShape)
-      );
-
-      if (move === -1) {
-        copy.turn = "player";
-        return setGame(copy);
-      }
+      bot.hand.push(copy.deck.pop());
+      copy.turn = "player";
+      return setGame(copy);
     }
 
     const card = bot.hand.splice(move, 1)[0];
@@ -275,9 +258,6 @@ export default function WhotGame() {
     playSound("play");
     applyRules(card, copy, false);
 
-    addLog(`Bot played ${card.number}`);
-
-    // HOLD (1)
     if (card.number === 1) {
       copy.turn = "bot";
       setGame(copy);
@@ -288,104 +268,114 @@ export default function WhotGame() {
     setGame(copy);
   }
 
+  // =========================
+  // VOICE CONTROL
+  // =========================
+  function startVoice() {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) return alert("Voice not supported");
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+
+    recognition.onresult = (e) => {
+      const text =
+        e.results[e.results.length - 1][0].transcript.toLowerCase();
+
+      addLog("🎤 " + text);
+
+      if (text.includes("one") || text.includes("hold")) playCardByNumber(1);
+      if (text.includes("two")) triggerPick2();
+      if (text.includes("eight")) playCardByNumber(8);
+      if (text.includes("fourteen") || text.includes("whot")) playCardByNumber(14);
+
+      if (gameRef.current?.awaitingShape) {
+        if (text.includes("circle")) setShape("circle");
+        if (text.includes("triangle")) setShape("triangle");
+        if (text.includes("square")) setShape("square");
+        if (text.includes("star")) setShape("star");
+        if (text.includes("cross")) setShape("cross");
+      }
+    };
+
+    recognition.start();
+  }
+
+  function playCardByNumber(num) {
+    const g = gameRef.current;
+    if (!g) return;
+
+    const copy = JSON.parse(JSON.stringify(g));
+    const player = copy.players[0];
+    const top = copy.discard.at(-1);
+
+    const i = player.hand.findIndex(c => c.number === num);
+    if (i === -1) return;
+
+    const card = player.hand[i];
+
+    if (!isValidMove(card, top, requestedShape)) return;
+
+    player.hand.splice(i, 1);
+    copy.discard.push(card);
+
+    applyRules(card, copy, true);
+    copy.turn = "bot";
+
+    setGame(copy);
+    setTimeout(botPlay, 400);
+  }
+
+  function triggerPick2() {
+    const g = gameRef.current;
+    const copy = JSON.parse(JSON.stringify(g));
+
+    copy.players[1].hand.push(copy.deck.pop());
+    copy.players[1].hand.push(copy.deck.pop());
+
+    pushAlert("🔴 PICK 2");
+    copy.turn = "bot";
+    setGame(copy);
+  }
+
+  function setShape(shape) {
+    const copy = JSON.parse(JSON.stringify(gameRef.current));
+
+    copy.requestedShape = shape;
+    copy.awaitingShape = false;
+
+    pushAlert("🎯 " + shape);
+
+    copy.turn = "bot";
+    setGame(copy);
+  }
+
   const top = game?.discard?.at(-1);
 
   return (
-    <div style={styles.bg}>
+    <div style={{ padding: 20, background: "green", minHeight: "100vh" }}>
+      <button onClick={startMatch}>Start</button>
+      <button onClick={startVoice}>🎤 Voice</button>
 
-      <div style={styles.alertBox}>
-        {alerts.map((a, i) => <div key={i}>{a}</div>)}
+      {top && <img src={drawCard(top)} />}
+
+      <div>
+        {game?.players[0].hand.map((c, i) => (
+          <img
+            key={i}
+            src={drawCard(c)}
+            onClick={() => playCard(i)}
+            style={{ width: 60 }}
+          />
+        ))}
       </div>
 
-      <div style={styles.box}>
-        <h2>WHOT GAME</h2>
-
-        {!started && (
-          <button onClick={startMatch}>Start</button>
-        )}
-
-        {started && game && (
-          <>
-            <div style={styles.centerRow}>
-              <div style={styles.board}>
-                {top && <img src={drawCard(top)} style={styles.card} />}
-              </div>
-
-              <button onClick={drawMarket} style={styles.marketBtn}>
-                🃏 MARKET ({game.deck.length})
-              </button>
-            </div>
-
-            <div style={styles.hand}>
-              {game.players[0].hand.map((c, i) => (
-                <img
-                  key={i}
-                  src={drawCard(c)}
-                  style={styles.card}
-                  onClick={() => playCard(i)}
-                />
-              ))}
-            </div>
-          </>
-        )}
-
-        <div style={styles.history}>
-          {log.map((l, i) => <div key={i}>• {l}</div>)}
-        </div>
+      <div>
+        {alerts.map((a, i) => <div key={i}>{a}</div>)}
       </div>
     </div>
   );
 }
-
-// =========================
-// STYLES
-// =========================
-const styles = {
-  bg: {
-    minHeight: "100vh",
-    background: "green",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  box: {
-    width: 420,
-    padding: 10,
-    background: "#00000066",
-    color: "#fff",
-    borderRadius: 10
-  },
-  centerRow: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10
-  },
-  board: { transform: "scale(0.9)" },
-  marketBtn: {
-    padding: 10,
-    background: "gold",
-    fontWeight: "bold",
-    border: "none",
-    borderRadius: 6
-  },
-  hand: {
-    display: "flex",
-    gap: 6,
-    flexWrap: "wrap",
-    justifyContent: "center"
-  },
-  card: { width: 55 },
-  alertBox: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    background: "#000000aa",
-    color: "yellow",
-    padding: 8
-  },
-  history: {
-    marginTop: 10,
-    fontSize: 12
-  }
-};
