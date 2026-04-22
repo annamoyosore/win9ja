@@ -132,25 +132,18 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULES (FIXED CORE LOGIC)
+  // RULE ENGINE (FIXED HOLD)
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
     // =========================
-    // 1 = HOLD ON (BLOCK OPPONENT)
+    // 1 = HOLD ON (OWNED LOCK)
     // =========================
     if (card.number === 1) {
-      copy.holdActive = opponent;
+      copy.holdOwner = isPlayer ? 0 : 1;
+      copy.skipNext = opponent;
       pushAlert("🟡 HOLD ON → OPPONENT BLOCKED");
-    }
-
-    // =========================
-    // RELEASE HOLD WHEN NON-1 IS PLAYED
-    // =========================
-    if (isPlayer && copy.holdActive === opponent && card.number !== 1) {
-      copy.holdActive = null;
-      pushAlert("🟢 HOLD RELEASED");
     }
 
     // =========================
@@ -164,11 +157,11 @@ export default function WhotGame() {
     }
 
     // =========================
-    // 8 = SUSPENSION (SKIP NEXT TURN ONLY)
+    // 8 = SUSPENSION
     // =========================
     if (card.number === 8) {
       copy.skipNext = opponent;
-      pushAlert("🔵 SUSPENSION → SKIP TURN");
+      pushAlert("🔵 SUSPENSION");
     }
 
     // =========================
@@ -200,7 +193,7 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      holdActive: null
+      holdOwner: null
     });
 
     setLog([]);
@@ -218,8 +211,8 @@ export default function WhotGame() {
     const g = gameRef.current;
     if (!g || winner || g.turn !== "player") return;
 
-    // BLOCK IF HELD
-    if (g.holdActive === 0) {
+    // BLOCK IF HELD BY OPPONENT
+    if (g.holdOwner === 1) {
       pushAlert("🔒 YOU ARE BLOCKED BY HOLD");
       return;
     }
@@ -238,6 +231,9 @@ export default function WhotGame() {
 
     playSound("play");
     applyRules(card, copy, true);
+
+    // RELEASE HOLD IF OWNER PLAYS
+    if (copy.holdOwner === 0) copy.holdOwner = null;
 
     addLog(`You played ${card.number}`);
 
@@ -259,6 +255,9 @@ export default function WhotGame() {
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
 
+    // RELEASE HOLD IF OWNER DRAWS
+    if (copy.holdOwner === 0) copy.holdOwner = null;
+
     playSound("draw");
     addLog("Market draw");
 
@@ -269,7 +268,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT (RESPECTS HOLD + SUSPENSION)
+  // BOT
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -277,7 +276,6 @@ export default function WhotGame() {
 
     const copy = JSON.parse(JSON.stringify(g));
 
-    // SUSPENSION
     if (copy.skipNext === 1) {
       copy.skipNext = null;
       pushAlert("🤖 BOT SKIPPED");
@@ -285,9 +283,8 @@ export default function WhotGame() {
       return setGame(copy);
     }
 
-    // HOLD BLOCK
-    if (copy.holdActive === 1) {
-      pushAlert("🔒 BOT BLOCKED (HOLD)");
+    if (copy.holdOwner === 0) {
+      pushAlert("🔒 BOT BLOCKED BY HOLD");
       copy.turn = "player";
       return setGame(copy);
     }
