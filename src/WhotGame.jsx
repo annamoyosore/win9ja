@@ -19,7 +19,6 @@ function playSound(type) {
 // =========================
 function createDeck() {
   const deck = [];
-
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
       if (i === 6 || i === 9) continue;
@@ -27,7 +26,6 @@ function createDeck() {
     }
     deck.push({ shape, number: 14 });
   }
-
   return deck.sort(() => Math.random() - 0.5);
 }
 
@@ -107,6 +105,7 @@ export default function WhotGame() {
   const [winner, setWinner] = useState(null);
   const [requestedShape, setRequestedShape] = useState(null);
   const [showWin, setShowWin] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -136,9 +135,6 @@ export default function WhotGame() {
     return false;
   }
 
-  // =========================
-  // RULES (FIXED 14 ONLY)
-  // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
@@ -155,7 +151,6 @@ export default function WhotGame() {
     }
 
     if (card.number === 14) {
-      // ✅ FIXED HERE ONLY
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.skipNext = opponent;
       pushAlert("🟢 GENERAL MARKET (Pick 1 + Skip)");
@@ -291,20 +286,59 @@ export default function WhotGame() {
             <div style={styles.winBox}>
               <h1>{winner}</h1>
               <div style={styles.flowers}>🌸🌺🌸🌺🌸🌺</div>
-              <button onClick={startMatch} style={styles.rematchBtn}>
+
+              <button onClick={() => setConfirmExit(true)} style={styles.rematchBtn}>
                 🔁 REMATCH
               </button>
+
+              <button onClick={() => setConfirmExit(true)} style={{ ...styles.rematchBtn, marginTop: 10 }}>
+                🏠 HOME
+              </button>
             </div>
+
+            {confirmExit && (
+              <div style={styles.confirmBox}>
+                <p>Choose action:</p>
+
+                <button onClick={startMatch} style={styles.rematchBtn}>
+                  REMATCH
+                </button>
+
+                <button
+                  onClick={() => {
+                    setGame(null);
+                    setStarted(false);
+                    setConfirmExit(false);
+                  }}
+                  style={{ ...styles.rematchBtn, marginTop: 10 }}
+                >
+                  HOME
+                </button>
+
+                <button
+                  onClick={() => setConfirmExit(false)}
+                  style={{ ...styles.rematchBtn, marginTop: 10, background: "gray" }}
+                >
+                  CANCEL
+                </button>
+              </div>
+            )}
           </div>
         )}
-
-        {winner && <div style={{ color: "gold" }}>{winner}</div>}
 
         <div style={styles.alertBox}>
           {alerts.map((a, i) => <div key={i}>{a}</div>)}
         </div>
 
-        <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
+        {/* ✅ Opponent cards */}
+        <div>
+          🤖 Bot Cards: {game.players[1].hand.length}
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
+            {game.players[1].hand.map((_, i) => (
+              <div key={i} style={styles.cardBack}></div>
+            ))}
+          </div>
+        </div>
 
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
@@ -328,7 +362,7 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES (UNCHANGED)
+// STYLES (ONLY ADDITIONS)
 // =========================
 const styles = {
   bg: {
@@ -356,8 +390,14 @@ const styles = {
     border: "none",
     padding: 10,
     fontWeight: "bold",
-    borderRadius: 8,
-    cursor: "pointer"
+    borderRadius: 8
+  },
+  cardBack: {
+    width: 30,
+    height: 45,
+    background: "#222",
+    border: "2px solid gold",
+    borderRadius: 4
   },
   alertBox: {
     background: "#000000aa",
@@ -384,8 +424,7 @@ const styles = {
     background: "rgba(0,0,0,0.85)",
     display: "flex",
     justifyContent: "center",
-    alignItems: "center",
-    zIndex: 9999
+    alignItems: "center"
   },
   winBox: {
     textAlign: "center",
@@ -399,8 +438,14 @@ const styles = {
     padding: 12,
     background: "gold",
     border: "none",
+    borderRadius: 10
+  },
+  confirmBox: {
+    position: "absolute",
+    bottom: 40,
+    background: "#000",
+    padding: 20,
     borderRadius: 10,
-    fontWeight: "bold",
-    cursor: "pointer"
+    textAlign: "center"
   }
 };
