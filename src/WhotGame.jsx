@@ -221,12 +221,11 @@ export default function WhotGame() {
     copy.turn = "bot";
     setGame(copy);
 
-    // ⏱️ FIXED: BOT THINKING TIME = 5 SECONDS
     setTimeout(botPlay, 5000);
   }
 
   // =========================
-  // MARKET
+  // MARKET (RESTORED BUTTON FUNCTION)
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -241,7 +240,6 @@ export default function WhotGame() {
     copy.turn = "bot";
     setGame(copy);
 
-    // ⏱️ FIXED: BOT THINKING TIME = 5 SECONDS
     setTimeout(botPlay, 5000);
   }
 
@@ -314,13 +312,15 @@ export default function WhotGame() {
 
         <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
 
+        {/* ✅ CENTER AREA (FIXED MARKET BUTTON HERE) */}
         <div style={styles.center}>
-  {top && <img src={drawCard(top)} style={{ width: 60 }} />}
+          {top && <img src={drawCard(top)} style={{ width: 60 }} />}
 
-  <button onClick={drawMarket} style={styles.marketBtn}>
-    🃏 MARKET ({game.deck.length})
-  </button>
-</div>
+          <button onClick={drawMarket} style={styles.marketBtn}>
+            🃏 MARKET ({game.deck.length})
+          </button>
+        </div>
+
         <div>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -360,7 +360,17 @@ const styles = {
   center: {
     display: "flex",
     justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
     margin: "10px 0"
+  },
+  marketBtn: {
+    background: "gold",
+    border: "none",
+    padding: 10,
+    fontWeight: "bold",
+    borderRadius: 8,
+    cursor: "pointer"
   },
   alertBox: {
     background: "#000000aa",
@@ -377,14 +387,5 @@ const styles = {
     color: "#fff",
     border: "none",
     borderRadius: 10
-  },
-marketBtn: {
-  background: "gold",
-  border: "none",
-  padding: 10,
-  fontWeight: "bold",
-  borderRadius: 8,
-  marginLeft: 10,
-  cursor: "pointer"
-}
+  }
 };
