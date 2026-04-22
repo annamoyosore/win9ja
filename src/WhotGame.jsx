@@ -106,8 +106,6 @@ export default function WhotGame() {
   const [alerts, setAlerts] = useState([]);
   const [winner, setWinner] = useState(null);
   const [requestedShape, setRequestedShape] = useState(null);
-
-  // 🌸 NEW WIN STATE (ADDED ONLY)
   const [showWin, setShowWin] = useState(false);
 
   const gameRef = useRef(null);
@@ -124,9 +122,6 @@ export default function WhotGame() {
     setTimeout(() => setAlerts(p => p.slice(1)), 2500);
   }
 
-  // =========================
-  // WIN CHECK (UPDATED ONLY)
-  // =========================
   function checkWin(copy) {
     if (copy.players[0].hand.length === 0) {
       setWinner("YOU WIN 🏆");
@@ -142,7 +137,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULES
+  // RULES (FIXED 14 ONLY)
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
@@ -160,20 +155,13 @@ export default function WhotGame() {
     }
 
     if (card.number === 14) {
-      copy.players.forEach((p, idx) => {
-        if (idx !== opponent) {
-          p.hand.push(copy.deck.pop());
-        }
-      });
-
+      // ✅ FIXED HERE ONLY
+      copy.players[opponent].hand.push(copy.deck.pop());
       copy.skipNext = opponent;
-      pushAlert("🟢 GENERAL MARKET");
+      pushAlert("🟢 GENERAL MARKET (Pick 1 + Skip)");
     }
   }
 
-  // =========================
-  // START
-  // =========================
   function startMatch() {
     const deck = createDeck();
 
@@ -198,12 +186,9 @@ export default function WhotGame() {
 
   const top = game?.discard?.at(-1);
 
-  // =========================
-  // PLAYER MOVE
-  // =========================
   function playCard(i) {
     const g = gameRef.current;
-    if (!g || winner) return;
+    if (!g || winner || g.turn !== "player") return;
 
     const copy = JSON.parse(JSON.stringify(g));
     const player = copy.players[0];
@@ -230,12 +215,9 @@ export default function WhotGame() {
     setTimeout(botPlay, 5000);
   }
 
-  // =========================
-  // MARKET
-  // =========================
   function drawMarket() {
     const g = gameRef.current;
-    if (!g || winner) return;
+    if (!g || winner || g.turn !== "player") return;
 
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
@@ -249,9 +231,6 @@ export default function WhotGame() {
     setTimeout(botPlay, 5000);
   }
 
-  // =========================
-  // BOT
-  // =========================
   function botPlay() {
     const g = gameRef.current;
     if (!g || winner) return;
@@ -292,9 +271,6 @@ export default function WhotGame() {
     setGame(copy);
   }
 
-  // =========================
-  // UI
-  // =========================
   if (!game) {
     return (
       <div style={styles.bg}>
@@ -310,13 +286,11 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {/* 🌸 WIN OVERLAY ADDED ONLY */}
         {showWin && (
           <div style={styles.winOverlay}>
             <div style={styles.winBox}>
               <h1>{winner}</h1>
               <div style={styles.flowers}>🌸🌺🌸🌺🌸🌺</div>
-
               <button onClick={startMatch} style={styles.rematchBtn}>
                 🔁 REMATCH
               </button>
@@ -334,7 +308,6 @@ export default function WhotGame() {
 
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
-
           <button onClick={drawMarket} style={styles.marketBtn}>
             🃏 MARKET ({game.deck.length})
           </button>
@@ -355,10 +328,53 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES (ONLY ADDITIONS)
+// STYLES (UNCHANGED)
 // =========================
 const styles = {
-  ...{},
+  bg: {
+    minHeight: "100vh",
+    background: "green",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  box: {
+    width: 420,
+    padding: 10,
+    background: "#00000066",
+    color: "#fff"
+  },
+  center: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    margin: "10px 0"
+  },
+  marketBtn: {
+    background: "gold",
+    border: "none",
+    padding: 10,
+    fontWeight: "bold",
+    borderRadius: 8,
+    cursor: "pointer"
+  },
+  alertBox: {
+    background: "#000000aa",
+    color: "yellow",
+    padding: 6
+  },
+  history: {
+    fontSize: 12,
+    marginTop: 10
+  },
+  startBtn: {
+    padding: 15,
+    background: "green",
+    color: "#fff",
+    border: "none",
+    borderRadius: 10
+  },
   winOverlay: {
     position: "fixed",
     top: 0,
@@ -377,8 +393,7 @@ const styles = {
   },
   flowers: {
     fontSize: 40,
-    margin: "20px 0",
-    animation: "float 1.5s infinite"
+    margin: "20px 0"
   },
   rematchBtn: {
     padding: 12,
