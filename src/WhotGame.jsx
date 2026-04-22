@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// SOUND
+// SOUND (UNCHANGED)
 // =========================
 function playSound(type) {
   const s = {
@@ -15,7 +15,7 @@ function playSound(type) {
 }
 
 // =========================
-// DECK
+// DECK (UNCHANGED)
 // =========================
 function createDeck() {
   const deck = [];
@@ -30,16 +30,23 @@ function createDeck() {
 }
 
 // =========================
-// VALID MOVE (FIXED SAFE)
+// FIXED RULE ENGINE (IMPORTANT)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
-  if (requestedShape) return card.shape === requestedShape;
+
+  // 🟢 REQUESTED SHAPE OVERRIDE
+  if (requestedShape) {
+    return card.shape === requestedShape || card.number === top.number;
+  }
+
+  // 🔥 CORE FIX:
+  // SAME NUMBER ACROSS SHAPES MUST ALWAYS MATCH
   return card.number === top.number || card.shape === top.shape;
 }
 
 // =========================
-// CARD RENDER (RESTORED SAFE)
+// CARD RENDER (RESTORED YOUR ORIGINAL STYLE)
 // =========================
 const cache = new Map();
 
@@ -52,6 +59,7 @@ function drawCard(card) {
   c.height = 130;
   const ctx = c.getContext("2d");
 
+  // original style preserved
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, 90, 130);
 
@@ -71,7 +79,9 @@ function drawCard(card) {
     ctx.fill();
   }
 
-  if (card.shape === "square") ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  if (card.shape === "square") {
+    ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  }
 
   if (card.shape === "triangle") {
     ctx.beginPath();
@@ -102,6 +112,7 @@ export default function WhotGame() {
   const [started, setStarted] = useState(false);
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [requestedShape, setRequestedShape] = useState(null);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -118,13 +129,13 @@ export default function WhotGame() {
   }
 
   // =========================
-  // RULES (UNCHANGED LOGIC)
+  // RULES (UNCHANGED LOGIC, FIXED ONLY BEHAVIOR)
   // =========================
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
     if (card.number === 1) {
-      copy.locked = opponent;
+      copy.hold = opponent;
       pushAlert("🟡 HOLD");
     }
 
@@ -141,13 +152,14 @@ export default function WhotGame() {
 
     if (card.number === 14) {
       const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      setRequestedShape(shape);
       copy.requestedShape = shape;
       pushAlert("🟢 REQUEST " + shape);
     }
   }
 
   // =========================
-  // START (FIXED - NO CRASH)
+  // START (UNCHANGED UI)
   // =========================
   function startMatch() {
     const deck = createDeck();
@@ -161,16 +173,16 @@ export default function WhotGame() {
       discard: [deck.pop()],
       turn: "player",
       skipNext: null,
-      locked: null,
+      hold: null,
       requestedShape: null
     });
 
     setStarted(true);
     setLog([]);
     setAlerts([]);
+    setRequestedShape(null);
   }
 
-  const requestedShape = game?.requestedShape;
   const top = game?.discard?.at(-1);
 
   // =========================
@@ -195,7 +207,7 @@ export default function WhotGame() {
     playSound("play");
     applyRules(card, copy, true);
 
-    addLog(`You played ${card.number}`);
+    addLog(`You played ${card.number} (${card.shape})`);
 
     copy.turn = "bot";
     setGame(copy);
@@ -204,7 +216,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // MARKET
+  // MARKET (UNCHANGED FLOW)
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -214,7 +226,7 @@ export default function WhotGame() {
     copy.players[0].hand.push(copy.deck.pop());
 
     playSound("draw");
-    addLog("Drew market");
+    addLog("Market draw");
 
     copy.turn = "bot";
     setGame(copy);
@@ -223,7 +235,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT (SAFE)
+  // BOT
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -249,7 +261,7 @@ export default function WhotGame() {
     playSound("play");
     applyRules(card, copy, false);
 
-    addLog(`Bot played ${card.number}`);
+    addLog(`Bot played ${card.number} (${card.shape})`);
 
     copy.turn = "player";
     setGame(copy);
@@ -281,7 +293,7 @@ export default function WhotGame() {
         </div>
 
         <div>
-          {top && <img src={drawCard(top)} style={{ width: 55 }} />}
+          {top && <img src={drawCard(top)} style={{ width: 60 }} />}
         </div>
 
         <div>
@@ -289,7 +301,7 @@ export default function WhotGame() {
             <img
               key={i}
               src={drawCard(c)}
-              style={{ width: 55 }}
+              style={{ width: 60 }}
               onClick={() => playCard(i)}
             />
           ))}
@@ -301,10 +313,23 @@ export default function WhotGame() {
   );
 }
 
-// styles unchanged
+// =========================
+// ORIGINAL STYLE PRESERVED
+// =========================
 const styles = {
-  bg: { minHeight: "100vh", background: "green", display: "flex", justifyContent: "center", alignItems: "center" },
-  box: { width: 420, padding: 10, background: "#00000066", color: "#fff" },
+  bg: {
+    minHeight: "100vh",
+    background: "green",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  box: {
+    width: 420,
+    padding: 10,
+    background: "#00000066",
+    color: "#fff"
+  },
   history: { fontSize: 12, marginBottom: 10 },
   alertBox: { background: "#000000aa", color: "yellow", padding: 6 }
 };
