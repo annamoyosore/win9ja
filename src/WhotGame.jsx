@@ -3,22 +3,11 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 // =========================
-// SOUND
-// =========================
-function playSound(type) {
-  const sounds = {
-    play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
-    draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
-    alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
-  };
-  new Audio(sounds[type]).play().catch(() => {});
-}
-
-// =========================
 // DECK
 // =========================
 function createDeck() {
   const deck = [];
+
   for (const shape of SHAPES) {
     for (let i = 1; i <= 13; i++) {
       if (i === 6 || i === 9) continue;
@@ -26,6 +15,7 @@ function createDeck() {
     }
     deck.push({ shape, number: 14 });
   }
+
   return deck.sort(() => Math.random() - 0.5);
 }
 
@@ -34,12 +24,14 @@ function createDeck() {
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
+
   if (requestedShape) return card.shape === requestedShape;
+
   return card.shape === top.shape || card.number === top.number;
 }
 
 // =========================
-// CARD RENDER
+// CARD RENDER (CANVAS)
 // =========================
 const cache = new Map();
 
@@ -71,7 +63,9 @@ function drawCard(card) {
     ctx.fill();
   }
 
-  if (card.shape === "square") ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  if (card.shape === "square") {
+    ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  }
 
   if (card.shape === "triangle") {
     ctx.beginPath();
@@ -103,7 +97,6 @@ export default function WhotGame() {
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [requestedShape, setRequestedShape] = useState(null);
-  const [awaitingShape, setAwaitingShape] = useState(false);
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -143,7 +136,7 @@ export default function WhotGame() {
 
     if (card.number === 14) {
       copy.awaitingShape = true;
-      pushAlert("🟢 CHOOSE SHAPE");
+      pushAlert("🟢 WHOT - choose shape");
     }
   }
 
@@ -169,10 +162,11 @@ export default function WhotGame() {
     setStarted(true);
     setLog([]);
     setAlerts([]);
+    setRequestedShape(null);
   }
 
   // =========================
-  // PLAY CARD
+  // PLAYER MOVE
   // =========================
   function playCard(i) {
     const g = gameRef.current;
@@ -188,18 +182,17 @@ export default function WhotGame() {
     player.hand.splice(i, 1);
     copy.discard.push(card);
 
-    playSound("play");
     applyRules(card, copy, true);
 
-    // HOLD
+    // HOLD (1)
     if (card.number === 1) {
       copy.turn = "player";
       setGame(copy);
       return;
     }
 
-    setGame(copy);
     copy.turn = "bot";
+    setGame(copy);
 
     setTimeout(botPlay, 400);
   }
@@ -214,8 +207,7 @@ export default function WhotGame() {
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
 
-    playSound("draw");
-    addLog("Drew card");
+    addLog("Drew from market");
 
     copy.turn = "bot";
     setGame(copy);
@@ -224,7 +216,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // BOT
+  // BOT LOGIC (STABLE)
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -232,6 +224,7 @@ export default function WhotGame() {
 
     const copy = JSON.parse(JSON.stringify(g));
 
+    // SUSPENSION
     if (copy.skipNext === 1) {
       pushAlert("🤖 Bot skipped");
       copy.skipNext = null;
@@ -255,9 +248,9 @@ export default function WhotGame() {
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
-    playSound("play");
     applyRules(card, copy, false);
 
+    // HOLD (1)
     if (card.number === 1) {
       copy.turn = "bot";
       setGame(copy);
@@ -268,113 +261,45 @@ export default function WhotGame() {
     setGame(copy);
   }
 
-  // =========================
-  // VOICE CONTROL
-  // =========================
-  function startVoice() {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) return alert("Voice not supported");
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.continuous = true;
-
-    recognition.onresult = (e) => {
-      const text =
-        e.results[e.results.length - 1][0].transcript.toLowerCase();
-
-      addLog("🎤 " + text);
-
-      if (text.includes("one") || text.includes("hold")) playCardByNumber(1);
-      if (text.includes("two")) triggerPick2();
-      if (text.includes("eight")) playCardByNumber(8);
-      if (text.includes("fourteen") || text.includes("whot")) playCardByNumber(14);
-
-      if (gameRef.current?.awaitingShape) {
-        if (text.includes("circle")) setShape("circle");
-        if (text.includes("triangle")) setShape("triangle");
-        if (text.includes("square")) setShape("square");
-        if (text.includes("star")) setShape("star");
-        if (text.includes("cross")) setShape("cross");
-      }
-    };
-
-    recognition.start();
-  }
-
-  function playCardByNumber(num) {
-    const g = gameRef.current;
-    if (!g) return;
-
-    const copy = JSON.parse(JSON.stringify(g));
-    const player = copy.players[0];
-    const top = copy.discard.at(-1);
-
-    const i = player.hand.findIndex(c => c.number === num);
-    if (i === -1) return;
-
-    const card = player.hand[i];
-
-    if (!isValidMove(card, top, requestedShape)) return;
-
-    player.hand.splice(i, 1);
-    copy.discard.push(card);
-
-    applyRules(card, copy, true);
-    copy.turn = "bot";
-
-    setGame(copy);
-    setTimeout(botPlay, 400);
-  }
-
-  function triggerPick2() {
-    const g = gameRef.current;
-    const copy = JSON.parse(JSON.stringify(g));
-
-    copy.players[1].hand.push(copy.deck.pop());
-    copy.players[1].hand.push(copy.deck.pop());
-
-    pushAlert("🔴 PICK 2");
-    copy.turn = "bot";
-    setGame(copy);
-  }
-
-  function setShape(shape) {
-    const copy = JSON.parse(JSON.stringify(gameRef.current));
-
-    copy.requestedShape = shape;
-    copy.awaitingShape = false;
-
-    pushAlert("🎯 " + shape);
-
-    copy.turn = "bot";
-    setGame(copy);
-  }
-
   const top = game?.discard?.at(-1);
 
   return (
     <div style={{ padding: 20, background: "green", minHeight: "100vh" }}>
-      <button onClick={startMatch}>Start</button>
-      <button onClick={startVoice}>🎤 Voice</button>
+      <button onClick={startMatch}>Start Game</button>
 
-      {top && <img src={drawCard(top)} />}
+      {started && game && (
+        <>
+          <div>
+            <b>Market:</b> {game.deck.length}
+          </div>
+
+          <div>
+            {top && <img src={drawCard(top)} style={{ width: 70 }} />}
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {game.players[0].hand.map((c, i) => (
+              <img
+                key={i}
+                src={drawCard(c)}
+                style={{ width: 60 }}
+                onClick={() => playCard(i)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       <div>
-        {game?.players[0].hand.map((c, i) => (
-          <img
-            key={i}
-            src={drawCard(c)}
-            onClick={() => playCard(i)}
-            style={{ width: 60 }}
-          />
+        {alerts.map((a, i) => (
+          <div key={i}>{a}</div>
         ))}
       </div>
 
       <div>
-        {alerts.map((a, i) => <div key={i}>{a}</div>)}
+        {log.map((l, i) => (
+          <div key={i}>• {l}</div>
+        ))}
       </div>
     </div>
   );
