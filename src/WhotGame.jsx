@@ -39,7 +39,7 @@ function isValidMove(card, top, requestedShape) {
 }
 
 // =========================
-// CARD RENDER
+// CARD FRONT RENDER
 // =========================
 const cache = new Map();
 
@@ -95,6 +95,36 @@ function drawCard(card) {
 }
 
 // =========================
+// 🂠 CARD BACK (NEW FEATURE)
+// =========================
+const backCache = new Map();
+
+function drawCardBack() {
+  const key = "card_back";
+  if (backCache.has(key)) return backCache.get(key);
+
+  const c = document.createElement("canvas");
+  c.width = 90;
+  c.height = 130;
+  const ctx = c.getContext("2d");
+
+  ctx.fillStyle = "#1f2937";
+  ctx.fillRect(0, 0, 90, 130);
+
+  ctx.strokeStyle = "gold";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, 86, 126);
+
+  ctx.fillStyle = "gold";
+  ctx.font = "bold 20px Arial";
+  ctx.fillText("WHOT", 15, 70);
+
+  const img = c.toDataURL();
+  backCache.set(key, img);
+  return img;
+}
+
+// =========================
 // GAME
 // =========================
 export default function WhotGame() {
@@ -134,7 +164,7 @@ export default function WhotGame() {
   const top = game?.discard?.at(-1);
 
   // =========================
-  // PLAY
+  // PLAYER MOVE
   // =========================
   function playCard(i) {
     const g = gameRef.current;
@@ -153,7 +183,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // MARKET (FIXED GOLD BUTTON USES THIS)
+  // MARKET
   // =========================
   function drawMarket() {
     const g = gameRef.current;
@@ -213,25 +243,40 @@ export default function WhotGame() {
       <div style={styles.box}>
         <h2>WHOT GAME</h2>
 
-        {/* ================= PLAYERS + COINS FIXED ================= */}
+        {/* ================= PLAYERS + COINS ================= */}
         <div style={styles.playersRow}>
           <div>🧑 YOU 🪙 {game.players[0].coins}</div>
           <div>🤖 BOT 🪙 {game.players[1].coins}</div>
         </div>
 
-        {/* ================= CENTER BOARD ================= */}
+        {/* ================= BOT CARD COUNT + BACK CARDS FIX ================= */}
+        <div style={{ marginTop: 10 }}>
+          🤖 Bot Cards: {game.players[1].hand.length}
+        </div>
+
+        <div style={styles.botHand}>
+          {game.players[1].hand.map((_, i) => (
+            <img
+              key={i}
+              src={drawCardBack()}
+              style={{ width: 45 }}
+            />
+          ))}
+        </div>
+
+        {/* ================= CENTER CARD ================= */}
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
         </div>
 
-        {/* ================= GOLD MARKET BUTTON (RESTORED PROPERLY) ================= */}
+        {/* ================= MARKET BUTTON ================= */}
         <div style={styles.marketWrap}>
           <button onClick={drawMarket} style={styles.marketBtn}>
             🟡 GOLD MARKET ({game.deck.length})
           </button>
         </div>
 
-        {/* ================= HAND ================= */}
+        {/* ================= PLAYER HAND ================= */}
         <div style={styles.hand}>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -253,7 +298,7 @@ export default function WhotGame() {
 }
 
 // =========================
-// STYLES (RESTORED UI BALANCE)
+// STYLES
 // =========================
 const styles = {
   bg: {
@@ -269,49 +314,45 @@ const styles = {
     background: "#00000066",
     color: "#fff"
   },
-
-  // 🔥 PLAYERS + COINS SIDE BY SIDE
   playersRow: {
     display: "flex",
     justifyContent: "space-between",
-    padding: "0 10px",
-    fontWeight: "bold"
+    padding: "0 10px"
   },
-
+  botHand: {
+    display: "flex",
+    gap: 3,
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginTop: 5
+  },
   center: {
     display: "flex",
     justifyContent: "center",
     margin: "10px 0"
   },
-
-  // 🟡 GOLD MARKET BUTTON AREA FIXED
   marketWrap: {
     display: "flex",
     justifyContent: "center",
     marginBottom: 10
   },
-
   marketBtn: {
     background: "gold",
     border: "none",
-    padding: 12,
+    padding: 10,
     fontWeight: "bold",
-    borderRadius: 10,
-    cursor: "pointer"
+    borderRadius: 8
   },
-
   hand: {
     display: "flex",
     justifyContent: "center",
     flexWrap: "wrap",
     gap: 5
   },
-
   history: {
     fontSize: 12,
     marginTop: 10
   },
-
   startBtn: {
     padding: 15,
     background: "green",
