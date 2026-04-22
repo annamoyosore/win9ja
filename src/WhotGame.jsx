@@ -25,7 +25,7 @@ function shuffle(array) {
 }
 
 // =========================
-// SOUND EFFECTS
+// SOUND
 // =========================
 function playSound(type) {
   const sounds = {
@@ -40,15 +40,29 @@ function playSound(type) {
 }
 
 // =========================
-// RULES
+// FIXED MATCH RULE (RESTORED FLEX SYSTEM)
 // =========================
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
+
+  // WHOT always valid
   if (card.number === 14) return true;
 
-  if (requestedShape) return card.shape === requestedShape;
+  // shape request after 14
+  if (requestedShape) {
+    return card.shape === requestedShape;
+  }
 
-  return card.shape === top.shape || card.number === top.number;
+  // =========================
+  // RESTORED FLEX RULE
+  // =========================
+  const sameShape = card.shape === top.shape;
+  const sameNumber = card.number === top.number;
+
+  // allow same number across different shapes
+  const flexibleNumberMatch = card.number === top.number;
+
+  return sameShape || sameNumber || flexibleNumberMatch;
 }
 
 // =========================
@@ -114,8 +128,16 @@ function drawCard(card) {
 
   ctx.fillStyle = "#e11d48";
 
-  if (card.shape === "circle") ctx.beginPath(), ctx.arc(cx, cy, 16, 0, Math.PI * 2), ctx.fill();
-  if (card.shape === "square") ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  if (card.shape === "circle") {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (card.shape === "square") {
+    ctx.fillRect(cx - 14, cy - 14, 28, 28);
+  }
+
   if (card.shape === "triangle") {
     ctx.beginPath();
     ctx.moveTo(cx, cy - 16);
@@ -124,7 +146,11 @@ function drawCard(card) {
     ctx.closePath();
     ctx.fill();
   }
-  if (card.shape === "star") ctx.fillText("★", cx - 8, cy + 6);
+
+  if (card.shape === "star") {
+    ctx.fillText("★", cx - 8, cy + 6);
+  }
+
   if (card.shape === "cross") {
     ctx.fillRect(cx - 3, cy - 16, 6, 32);
     ctx.fillRect(cx - 16, cy - 3, 32, 6);
@@ -143,7 +169,7 @@ function drawCard(card) {
 }
 
 // =========================
-// MAIN GAME
+// GAME
 // =========================
 export default function WhotGame() {
   const [game, setGame] = useState(null);
@@ -163,26 +189,8 @@ export default function WhotGame() {
     gameRef.current = game;
   }, [game]);
 
-  function addLog(m) {
-    setLog((p) => [...p, m]);
-  }
-
-  // =========================
-  // CONFETTI
-  // =========================
-  function launchConfetti() {
-    for (let i = 0; i < 60; i++) {
-      const el = document.createElement("div");
-      el.innerText = "🎊";
-      el.style.position = "fixed";
-      el.style.left = Math.random() * 100 + "vw";
-      el.style.top = "-10px";
-      el.style.fontSize = "20px";
-      el.style.animation = "fall 2s linear forwards";
-      document.body.appendChild(el);
-
-      setTimeout(() => el.remove(), 2000);
-    }
+  function addLog(msg) {
+    setLog((p) => [...p, msg]);
   }
 
   // =========================
@@ -204,7 +212,7 @@ export default function WhotGame() {
 
     setStarted(true);
     setWinner(null);
-    addLog("Match started");
+    setLog([]);
   }
 
   function rematch() {
@@ -215,7 +223,7 @@ export default function WhotGame() {
   }
 
   // =========================
-  // PLAYER
+  // PLAYER MOVE
   // =========================
   function playCard(i) {
     const g = gameRef.current;
@@ -235,6 +243,8 @@ export default function WhotGame() {
     player.hand.splice(i, 1);
     copy.discard.push(card);
 
+    // 🟢 PLAYER NOTIFICATION (ADDED)
+    addLog(`🟢 You played ${card.number} ${card.shape}`);
     playSound("move");
 
     if (card.number === 14) {
@@ -242,10 +252,7 @@ export default function WhotGame() {
         SHAPES[Math.floor(Math.random() * SHAPES.length)];
     }
 
-    if (checkWinner(copy, setGame, setWinner, setRank)) {
-      launchConfetti();
-      return;
-    }
+    if (checkWinner(copy, setGame, setWinner, setRank)) return;
 
     copy.turn = "bot";
     setGame(copy);
@@ -263,15 +270,18 @@ export default function WhotGame() {
     const copy = JSON.parse(JSON.stringify(g));
     copy.players[0].hand.push(copy.deck.pop());
 
-    addLog("Market draw");
-    copy.turn = "bot";
+    // 🃏 MARKET NOTIFICATION (ADDED)
+    addLog("🃏 You drew from market");
+    playSound("move");
 
+    copy.turn = "bot";
     setGame(copy);
+
     setTimeout(botPlay, 500);
   }
 
   // =========================
-  // BOT
+  // BOT MOVE
   // =========================
   function botPlay() {
     const g = gameRef.current;
@@ -294,15 +304,16 @@ export default function WhotGame() {
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
+    // 🤖 BOT NOTIFICATION (ADDED)
+    addLog(`🤖 Bot played ${card.number} ${card.shape}`);
+    playSound("move");
+
     if (card.number === 14) {
       copy.requestedShape =
         SHAPES[Math.floor(Math.random() * SHAPES.length)];
     }
 
-    if (checkWinner(copy, setGame, setWinner, setRank)) {
-      launchConfetti();
-      return;
-    }
+    if (checkWinner(copy, setGame, setWinner, setRank)) return;
 
     copy.turn = "player";
     setGame(copy);
@@ -312,17 +323,13 @@ export default function WhotGame() {
 
   return (
     <div style={styles.bg}>
-      <style>{`
-        @keyframes fall {
-          to { transform: translateY(110vh) rotate(360deg); }
-        }
-      `}</style>
-
       {/* WIN SCREEN */}
       {winner && (
         <div style={styles.overlay}>
           <h1>{winner === "player" ? "🎉 YOU WIN!" : "💀 BOT WINS!"}</h1>
-          <p>Wins: {rank.wins} | Losses: {rank.losses} | Streak: {rank.streak}</p>
+          <p>
+            Wins: {rank.wins} | Losses: {rank.losses} | Streak: {rank.streak}
+          </p>
           <button style={styles.btn} onClick={rematch}>
             🔁 Rematch
           </button>
