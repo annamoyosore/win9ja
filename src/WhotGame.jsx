@@ -315,9 +315,12 @@ export default function WhotGame() {
         <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
 
         <div style={styles.center}>
-          {top && <img src={drawCard(top)} style={{ width: 60 }} />}
-        </div>
+  {top && <img src={drawCard(top)} style={{ width: 60 }} />}
 
+  <button onClick={drawMarket} style={styles.marketBtn}>
+    🃏 MARKET ({game.deck.length})
+  </button>
+</div>
         <div>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -374,5 +377,14 @@ const styles = {
     color: "#fff",
     border: "none",
     borderRadius: 10
-  }
+  },
+marketBtn: {
+  background: "gold",
+  border: "none",
+  padding: 10,
+  fontWeight: "bold",
+  borderRadius: 8,
+  marginLeft: 10,
+  cursor: "pointer"
+}
 };
