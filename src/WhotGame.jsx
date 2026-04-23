@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 /* =========================================================
-   🔊 SOUND ENGINE (STABLE FIX)
+   🔊 SOUND ENGINE (STABLE)
 ========================================================= */
 function playSound(type) {
   try {
@@ -119,14 +119,15 @@ export default function WhotGame() {
   const [turn, setTurn] = useState("player");
 
   const gameRef = useRef(null);
-  const turnRef = useRef("player"); // ✅ FIX ADDED
+  const turnRef = useRef("player");
+  const extraTurnRef = useRef(false); // ✅ RULE 1 CONTROL
 
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
 
   useEffect(() => {
-    turnRef.current = turn; // ✅ FIX ADDED
+    turnRef.current = turn;
   }, [turn]);
 
   /* =========================================================
@@ -175,13 +176,12 @@ export default function WhotGame() {
     setCoins(p => {
       if (who === "player") {
         return { player: p.player + 3, bot: p.bot - 3 };
-      } else {
-        return { player: p.player - 3, bot: p.bot + 3 };
       }
+      return { player: p.player - 3, bot: p.bot + 3 };
     });
 
-    nextRound(who);
     playSound("alert");
+    nextRound(who);
   }
 
   /* =========================================================
@@ -202,40 +202,51 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     RULES (UNCHANGED)
+     RULE ENGINE (FIXED CONTROL LOGIC)
   ========================================================= */
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
 
+    extraTurnRef.current = false;
+
+    // 🔢 1 HOLD ON (EXTRA TURN)
     if (card.number === 1) {
-      pushAlert("🟡 HOLD ON");
-      addLog("Hold On", isPlayer ? "player" : "bot");
+      pushAlert("🟡 HOLD ON (EXTRA TURN)");
+      addLog("Hold On activated", isPlayer ? "player" : "bot");
+      extraTurnRef.current = true;
     }
 
+    // 🔢 2 PICK TWO
     if (card.number === 2) {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.players[opponent].hand.push(copy.deck.pop());
+      copy.skipNext = opponent;
+
       pushAlert("🔴 PICK 2");
-      addLog("Pick 2", isPlayer ? "player" : "bot");
+      addLog("Pick 2 activated", isPlayer ? "player" : "bot");
     }
 
+    // 🔢 8 SUSPENSION
     if (card.number === 8) {
       copy.skipNext = opponent;
+
       pushAlert("🔵 SUSPENSION");
-      addLog("Suspension", isPlayer ? "player" : "bot");
+      addLog("Suspension activated", isPlayer ? "player" : "bot");
     }
 
+    // 🔢 14 GENERAL MARKET
     if (card.number === 14) {
       copy.players.forEach((p, i) => {
         if (i !== opponent) p.hand.push(copy.deck.pop());
       });
+
       pushAlert("🟢 GENERAL MARKET");
-      addLog("General Market", isPlayer ? "player" : "bot");
+      addLog("General Market activated", isPlayer ? "player" : "bot");
     }
   }
 
   /* =========================================================
-     INIT GAME (UNCHANGED)
+     INIT GAME
   ========================================================= */
   function createGame() {
     const deck = createDeck();
@@ -255,14 +266,13 @@ export default function WhotGame() {
     setTurn("player");
     setRound(1);
     turnRef.current = "player";
+    extraTurnRef.current = false;
   }
 
-  const top = game?.discard?.length
-    ? game.discard[game.discard.length - 1]
-    : null;
+  const top = game?.discard?.at(-1);
 
   /* =========================================================
-     PLAYER MOVE (FIXED TURN SYNC ONLY)
+     PLAYER MOVE
   ========================================================= */
   function playCard(i) {
     const g = gameRef.current;
@@ -291,14 +301,19 @@ export default function WhotGame() {
 
     setGame(copy);
 
-    setTurn("bot");
-    turnRef.current = "bot"; // ✅ FIX
+    if (extraTurnRef.current) {
+      setTurn("player");
+      turnRef.current = "player";
+      return;
+    }
 
+    setTurn("bot");
+    turnRef.current = "bot";
     setTimeout(botPlay, 800);
   }
 
   /* =========================================================
-     MARKET (FIXED TURN SYNC ONLY)
+     MARKET
   ========================================================= */
   function drawMarket() {
     const g = gameRef.current;
@@ -316,13 +331,13 @@ export default function WhotGame() {
     setGame(copy);
 
     setTurn("bot");
-    turnRef.current = "bot"; // ✅ FIX
+    turnRef.current = "bot";
 
     setTimeout(botPlay, 800);
   }
 
   /* =========================================================
-     BOT (FIXED TURN SYNC ONLY)
+     BOT
   ========================================================= */
   function botPlay() {
     const g = gameRef.current;
@@ -345,7 +360,7 @@ export default function WhotGame() {
       setGame(copy);
 
       setTurn("player");
-      turnRef.current = "player"; // ✅ FIX
+      turnRef.current = "player";
       return;
     }
 
@@ -362,12 +377,18 @@ export default function WhotGame() {
 
     setGame(copy);
 
+    if (extraTurnRef.current) {
+      setTurn("bot");
+      turnRef.current = "bot";
+      return;
+    }
+
     setTurn("player");
-    turnRef.current = "player"; // ✅ FIX
+    turnRef.current = "player";
   }
 
   /* =========================================================
-     UI (UNCHANGED)
+     UI
   ========================================================= */
   if (!game) {
     return (
@@ -425,7 +446,7 @@ export default function WhotGame() {
 }
 
 /* =========================================================
-   🎨 STYLES (UNCHANGED)
+   🎨 STYLES
 ========================================================= */
 const styles = {
   bg: { minHeight: "100vh", background: "green", display: "flex", justifyContent: "center", alignItems: "center" },
