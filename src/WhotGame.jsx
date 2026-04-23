@@ -169,14 +169,18 @@ export default function WhotGame() {
       addLog("Rule 8 activated");
     }
 
-    if (card.number === 14) {
-      copy.players.forEach((p, idx) => {
-        if (idx !== opponent) p.hand.push(copy.deck.pop());
-      });
-      copy.skipNext = opponent;
-      pushAlert("🟢 GENERAL MARKET (14)");
-      addLog("Rule 14 activated");
-      playSound("alert");
+   if (card.number === 14) {
+  const opponent = isPlayer ? 1 : 0;
+
+  // 🟢 opponent draws exactly 1 card
+  copy.players[opponent].hand.push(copy.deck.pop());
+
+  // ⛔ opponent loses turn
+  copy.skipNext = opponent;
+
+  pushAlert("🟢 GENERAL MARKET: OPPONENT DRAWS 1 + SKIPS");
+  addLog("Rule 14: opponent forced to draw 1 and skip turn");
+  playSound("alert");
     }
   }
 
