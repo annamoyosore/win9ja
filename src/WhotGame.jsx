@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
 /* =========================================================
-   🔊 SOUND ENGINE (UNCHANGED)
+   🔊 SOUND ENGINE
 ========================================================= */
 function playSound(type) {
   const s = {
@@ -15,7 +15,7 @@ function playSound(type) {
 }
 
 /* =========================================================
-   🧠 RULE ENGINE (LOCKED SYSTEM)
+   🧠 RULE ENGINE (STABLE SKIP SYSTEM)
 ========================================================= */
 function ruleEngine(copy, pushAlert, addLog) {
   if (copy.skipNext !== null && copy.skipNext !== undefined) {
@@ -123,13 +123,16 @@ function drawCard(card) {
    🎮 GAME
 ========================================================= */
 export default function WhotGame() {
+
   const [game, setGame] = useState(null);
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [winner, setWinner] = useState(null);
 
-  const gameRef = useRef(null);
+  // 💰 COINS RESTORED
+  const [coins, setCoins] = useState({ player: 3, bot: 3 });
 
+  const gameRef = useRef(null);
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
@@ -144,7 +147,21 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     RULES (1,2,8,14 LOCKED)
+     🏆 WIN SYSTEM + COINS
+  ========================================================= */
+  function handleWin(winnerId) {
+    if (winnerId === "player") {
+      setCoins(p => ({ player: p.player + 3, bot: p.bot - 3 }));
+      setWinner("YOU WIN 🏆");
+    } else {
+      setCoins(p => ({ player: p.player - 3, bot: p.bot + 3 }));
+      setWinner("BOT WINS 🤖🏆");
+    }
+    playSound("alert");
+  }
+
+  /* =========================================================
+     RULES 1,2,8,14 (FIXED)
   ========================================================= */
   function applyRules(card, copy, isPlayer) {
     const opponent = isPlayer ? 1 : 0;
@@ -169,38 +186,21 @@ export default function WhotGame() {
       addLog("Rule 8 activated");
     }
 
-   if (card.number === 14) {
-  const opponent = isPlayer ? 1 : 0;
+    // 🟢 FIXED GENERAL MARKET
+    if (card.number === 14) {
+      const opp = isPlayer ? 1 : 0;
 
-  // 🟢 opponent draws exactly 1 card
-  copy.players[opponent].hand.push(copy.deck.pop());
+      copy.players[opp].hand.push(copy.deck.pop());
+      copy.skipNext = opp;
 
-  // ⛔ opponent loses turn
-  copy.skipNext = opponent;
-
-  pushAlert("🟢 GENERAL MARKET: OPPONENT DRAWS 1 + SKIPS");
-  addLog("Rule 14: opponent forced to draw 1 and skip turn");
-  playSound("alert");
+      pushAlert("🟢 GENERAL MARKET (DRAW 1 + SKIP)");
+      addLog("Rule 14 activated");
+      playSound("alert");
     }
   }
 
   /* =========================================================
-     WIN CHECK
-  ========================================================= */
-  function checkWin(copy) {
-    if (copy.players[0].hand.length === 0) {
-      setWinner("YOU WIN 🏆");
-      return true;
-    }
-    if (copy.players[1].hand.length === 0) {
-      setWinner("BOT WINS 🤖🏆");
-      return true;
-    }
-    return false;
-  }
-
-  /* =========================================================
-     START GAME
+     INIT GAME
   ========================================================= */
   function createGame() {
     const deck = createDeck();
@@ -252,7 +252,10 @@ export default function WhotGame() {
 
     applyRules(card, copy, true);
 
-    if (checkWin(copy)) return;
+    if (copy.players[0].hand.length === 0) {
+      handleWin("player");
+      return;
+    }
 
     setGame(copy);
     setTimeout(botPlay, 1200);
@@ -310,7 +313,10 @@ export default function WhotGame() {
 
     applyRules(card, copy, false);
 
-    if (checkWin(copy)) return;
+    if (bot.hand.length === 0) {
+      handleWin("bot");
+      return;
+    }
 
     setGame(copy);
   }
@@ -334,7 +340,10 @@ export default function WhotGame() {
 
         <h2>WHOT GAME</h2>
 
-        {alerts.map((a, i) => <div key={i}>{a}</div>)}
+        {/* 💰 COINS RESTORED */}
+        <div>
+          🧑 You: {coins.player} 🪙 | 🤖 Bot: {coins.bot} 🪙
+        </div>
 
         <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
 
