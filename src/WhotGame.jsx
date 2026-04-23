@@ -6,15 +6,12 @@ const SHAPES = ["circle", "triangle", "square", "star", "cross"];
    🔊 SOUND ENGINE
 ========================================================= */
 function playSound(type) {
-  const sounds = {
+  const s = {
     play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
     draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
     alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
   };
-
-  try {
-    new Audio(sounds[type]).play().catch(() => {});
-  } catch {}
+  new Audio(s[type]).play().catch(() => {});
 }
 
 /* =========================================================
@@ -99,21 +96,20 @@ function drawCard(card) {
 }
 
 /* =========================================================
-   🎮 GAME
+   🎮 WHOT PLATFORM v2
 ========================================================= */
 export default function WhotGame() {
 
   const [game, setGame] = useState(null);
   const [log, setLog] = useState([]);
+  const [round, setRound] = useState(1);
   const [winner, setWinner] = useState(null);
 
-  const [round, setRound] = useState(1);
-  const maxRounds = 3;
+  /* 🪙 BETTING SYSTEM */
+  const [coins, setCoins] = useState({ player: 10, bot: 10 });
+  const [pot, setPot] = useState(2);
 
   const [turn, setTurn] = useState("player");
-
-  const [roundPopup, setRoundPopup] = useState(null);
-  const [countdown, setCountdown] = useState(3);
 
   const gameRef = useRef(null);
   const turnRef = useRef("player");
@@ -122,69 +118,46 @@ export default function WhotGame() {
   useEffect(() => { turnRef.current = turn; }, [turn]);
 
   /* =========================================================
-     📜 FIXED MOVE HISTORY
+     📜 HISTORY
   ========================================================= */
   function addLog(msg, who = "player") {
-    const prefix = who === "bot" ? "🤖" : "🧑";
-
-    setLog(p => [...p, `${prefix} ${msg}`].slice(-20));
-  }
-
-  function pushAlert(msg) {
-    setLog(p => [...p, `⚠️ ${msg}`].slice(-20));
+    const icon = who === "bot" ? "🤖" : "🧑";
+    setLog(p => [...p, `${icon} ${msg}`].slice(-30));
   }
 
   /* =========================================================
-     SKIP ENGINE (FIXED)
-  ========================================================= */
-  function handleSkip(copy, currentTurn) {
-
-    if (copy.skipNext === 0 && currentTurn === "player") {
-      addLog("You were skipped", "player");
-      copy.skipNext = null;
-      return "bot";
-    }
-
-    if (copy.skipNext === 1 && currentTurn === "bot") {
-      addLog("Bot was skipped", "bot");
-      copy.skipNext = null;
-      return "player";
-    }
-
-    return currentTurn;
-  }
-
-  /* =========================================================
-     RULES
+     🧠 RULE ENGINE (WHOT v2)
   ========================================================= */
   function applyRules(card, copy, isPlayer) {
-    const opponent = isPlayer ? 1 : 0;
-    const current = isPlayer ? 0 : 1;
 
+    const opponent = isPlayer ? 1 : 0;
+
+    // 1 HOLD ON
     if (card.number === 1) {
-      addLog("Hold On activated", isPlayer ? "player" : "bot");
+      addLog("Hold On", isPlayer ? "player" : "bot");
       return { extraTurn: true };
     }
 
+    // 2 PICK TWO
     if (card.number === 2) {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.players[opponent].hand.push(copy.deck.pop());
-      copy.skipNext = opponent;
-      addLog("Pick 2 activated", isPlayer ? "player" : "bot");
+      addLog("Pick 2", isPlayer ? "player" : "bot");
     }
 
-    /* 🔵 FIXED 8 */
+    // 8 SUSPENSION
     if (card.number === 8) {
       copy.skipNext = opponent;
-      addLog("Suspension (Opponent skipped)", isPlayer ? "player" : "bot");
+      addLog("Suspension", isPlayer ? "player" : "bot");
       playSound("alert");
     }
 
+    // 14 GENERAL MARKET
     if (card.number === 14) {
       copy.players.forEach((p, i) => {
-        if (i !== current) p.hand.push(copy.deck.pop());
+        if (i !== opponent) p.hand.push(copy.deck.pop());
       });
-      addLog("General Market activated", isPlayer ? "player" : "bot");
+      addLog("General Market", isPlayer ? "player" : "bot");
       return { extraTurn: true };
     }
 
@@ -192,54 +165,13 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     ROUND SYSTEM (FIXED)
+     🏆 MATCH START (BETTING LOBBY)
   ========================================================= */
-  function nextRound(who) {
+  function startMatch() {
 
-    setRoundPopup(`${who === "player" ? "You" : "Bot"} won the round`);
+    setPot(2);
+    setCoins({ player: 10, bot: 10 });
 
-    let c = 3;
-    setCountdown(3);
-
-    const timer = setInterval(() => {
-      c--;
-      setCountdown(c);
-
-      if (c === 0) {
-        clearInterval(timer);
-        setRoundPopup(null);
-
-        if (round < maxRounds) {
-          const deck = createDeck();
-
-          setGame({
-            players: [
-              { hand: deck.splice(0, 6) },
-              { hand: deck.splice(0, 6) }
-            ],
-            deck,
-            discard: [deck.pop()],
-            skipNext: null
-          });
-
-          setRound(r => r + 1);
-          setTurn("player");
-        } else {
-          setWinner(who === "player" ? "YOU WIN 🏆" : "BOT WINS 🤖");
-        }
-      }
-    }, 1000);
-  }
-
-  function handleWin(who) {
-    playSound("alert");
-    nextRound(who);
-  }
-
-  /* =========================================================
-     INIT GAME
-  ========================================================= */
-  function createGame() {
     const deck = createDeck();
 
     setGame({
@@ -252,7 +184,6 @@ export default function WhotGame() {
       skipNext: null
     });
 
-    setRound(1);
     setWinner(null);
     setLog([]);
     setTurn("player");
@@ -261,12 +192,13 @@ export default function WhotGame() {
   const top = game?.discard?.at(-1);
 
   /* =========================================================
-     PLAYER MOVE
+     🧑 PLAYER MOVE
   ========================================================= */
   function playCard(i) {
+
     if (!gameRef.current || turnRef.current !== "player") return;
 
-    let copy = JSON.parse(JSON.stringify(gameRef.current));
+    const copy = JSON.parse(JSON.stringify(gameRef.current));
 
     const card = copy.players[0].hand[i];
 
@@ -280,42 +212,27 @@ export default function WhotGame() {
 
     addLog(`Played ${card.number}`, "player");
 
-    const result = applyRules(card, copy, true);
+    const res = applyRules(card, copy, true);
 
-    if (copy.players[0].hand.length === 0) return handleWin("player");
+    if (copy.players[0].hand.length === 0) {
+      endRound("player");
+      return;
+    }
 
     setGame(copy);
 
-    if (result.extraTurn) return;
+    if (res.extraTurn) return;
 
     setTurn("bot");
     setTimeout(botPlay, 700);
   }
 
   /* =========================================================
-     MARKET
-  ========================================================= */
-  function drawMarket() {
-    if (!gameRef.current || turnRef.current !== "player") return;
-
-    let copy = JSON.parse(JSON.stringify(gameRef.current));
-    copy.players[0].hand.push(copy.deck.pop());
-
-    addLog("Market draw", "player");
-
-    setGame(copy);
-    setTurn("bot");
-    setTimeout(botPlay, 700);
-  }
-
-  /* =========================================================
-     BOT
+     🤖 BOT
   ========================================================= */
   function botPlay() {
-    if (!gameRef.current || turnRef.current !== "bot") return;
 
-    let copy = JSON.parse(JSON.stringify(gameRef.current));
-
+    const copy = JSON.parse(JSON.stringify(gameRef.current));
     const bot = copy.players[1];
 
     const move = bot.hand.findIndex(c =>
@@ -324,7 +241,7 @@ export default function WhotGame() {
 
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
-      addLog("Drew card", "bot");
+      addLog("Bot drew", "bot");
       setGame(copy);
       setTurn("player");
       return;
@@ -335,13 +252,16 @@ export default function WhotGame() {
 
     addLog(`Played ${card.number}`, "bot");
 
-    const result = applyRules(card, copy, false);
+    const res = applyRules(card, copy, false);
 
-    if (bot.hand.length === 0) return handleWin("bot");
+    if (bot.hand.length === 0) {
+      endRound("bot");
+      return;
+    }
 
     setGame(copy);
 
-    if (result.extraTurn) {
+    if (res.extraTurn) {
       setTimeout(botPlay, 700);
       return;
     }
@@ -350,49 +270,97 @@ export default function WhotGame() {
   }
 
   /* =========================================================
+     🏁 ROUND END + POT SYSTEM
+  ========================================================= */
+  function endRound(who) {
+
+    playSound("alert");
+
+    setCoins(p => {
+      if (who === "player") {
+        return {
+          player: p.player + pot,
+          bot: p.bot - pot
+        };
+      }
+      return {
+        player: p.player - pot,
+        bot: p.bot + pot
+      };
+    });
+
+    setTimeout(() => {
+
+      if (round >= 3) {
+        setWinner(who === "player" ? "YOU WIN MATCH 🏆" : "BOT WINS 🤖");
+        return;
+      }
+
+      setRound(r => r + 1);
+
+      const deck = createDeck();
+
+      setGame({
+        players: [
+          { hand: deck.splice(0, 6) },
+          { hand: deck.splice(0, 6) }
+        ],
+        deck,
+        discard: [deck.pop()],
+        skipNext: null
+      });
+
+      setTurn("player");
+
+    }, 2000);
+  }
+
+  /* =========================================================
+     🚪 WITHDRAW
+  ========================================================= */
+  function withdraw() {
+    setWinner("WITHDRAWN ❌");
+    setGame(null);
+  }
+
+  /* =========================================================
      UI
   ========================================================= */
   if (!game) {
     return (
       <div style={{ background: "green", height: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <button onClick={createGame}>START GAME</button>
+        <button onClick={startMatch}>START MATCH (BETTING LOBBY)</button>
       </div>
     );
   }
 
   return (
-    <div style={{ background: "green", minHeight: "100vh", padding: 10, color: "#fff" }}>
+    <div style={{ background: "green", minHeight: "100vh", color: "#fff", padding: 10 }}>
 
-      <h2>WHOT GAME</h2>
+      <h2>WHOT PLATFORM v2</h2>
 
-      {/* ROUND POPUP */}
-      {roundPopup && (
-        <div style={{ background: "#000", padding: 10 }}>
-          <h3>{roundPopup}</h3>
-          <p>Next round in {countdown}</p>
-        </div>
-      )}
+      <div>
+        🪙 You: {coins.player} | 🤖 Bot: {coins.bot} | 💰 Pot: {pot}
+      </div>
 
-      <div>ROUND {round} / {maxRounds}</div>
+      <div>ROUND {round} / 3</div>
 
-      <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
+      <button onClick={withdraw} style={{ background: "red", color: "#fff" }}>
+        Withdraw
+      </button>
 
       <div style={{ display: "flex", gap: 10 }}>
         {top && <img src={drawCard(top)} width={60} />}
-        <button onClick={drawMarket}>🃏 MARKET</button>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap" }}>
+      <div>
         {game.players[0].hand.map((c, i) => (
           <img key={i} src={drawCard(c)} width={60} onClick={() => playCard(i)} />
         ))}
       </div>
 
-      {/* 🧾 FIXED MOVE HISTORY */}
       <div style={{ marginTop: 10, background: "#111", padding: 10 }}>
-        {log.map((l, i) => (
-          <div key={i}>{l}</div>
-        ))}
+        {log.map((l, i) => <div key={i}>{l}</div>)}
       </div>
 
     </div>
