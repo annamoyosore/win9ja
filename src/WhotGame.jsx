@@ -121,12 +121,17 @@ export default function WhotGame() {
   useEffect(() => { gameRef.current = game; }, [game]);
   useEffect(() => { turnRef.current = turn; }, [turn]);
 
+  /* =========================================================
+     📜 FIXED MOVE HISTORY
+  ========================================================= */
   function addLog(msg, who = "player") {
-    setLog(p => [...p, `${who === "bot" ? "🤖" : "🧑"} ${msg}`].slice(-15));
+    const prefix = who === "bot" ? "🤖" : "🧑";
+
+    setLog(p => [...p, `${prefix} ${msg}`].slice(-20));
   }
 
   function pushAlert(msg) {
-    setLog(p => [...p, `⚠️ ${msg}`].slice(-15));
+    setLog(p => [...p, `⚠️ ${msg}`].slice(-20));
   }
 
   /* =========================================================
@@ -135,13 +140,13 @@ export default function WhotGame() {
   function handleSkip(copy, currentTurn) {
 
     if (copy.skipNext === 0 && currentTurn === "player") {
-      pushAlert("You were suspended");
+      addLog("You were skipped", "player");
       copy.skipNext = null;
       return "bot";
     }
 
     if (copy.skipNext === 1 && currentTurn === "bot") {
-      pushAlert("Bot suspended");
+      addLog("Bot was skipped", "bot");
       copy.skipNext = null;
       return "player";
     }
@@ -157,7 +162,7 @@ export default function WhotGame() {
     const current = isPlayer ? 0 : 1;
 
     if (card.number === 1) {
-      pushAlert("Hold On - Play again");
+      addLog("Hold On activated", isPlayer ? "player" : "bot");
       return { extraTurn: true };
     }
 
@@ -165,13 +170,13 @@ export default function WhotGame() {
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.players[opponent].hand.push(copy.deck.pop());
       copy.skipNext = opponent;
-      pushAlert("Pick 2");
+      addLog("Pick 2 activated", isPlayer ? "player" : "bot");
     }
 
     /* 🔵 FIXED 8 */
     if (card.number === 8) {
       copy.skipNext = opponent;
-      pushAlert("Suspension - Opponent loses turn");
+      addLog("Suspension (Opponent skipped)", isPlayer ? "player" : "bot");
       playSound("alert");
     }
 
@@ -179,7 +184,7 @@ export default function WhotGame() {
       copy.players.forEach((p, i) => {
         if (i !== current) p.hand.push(copy.deck.pop());
       });
-      pushAlert("General Market");
+      addLog("General Market activated", isPlayer ? "player" : "bot");
       return { extraTurn: true };
     }
 
@@ -187,11 +192,11 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     ROUND SYSTEM (FIXED POPUP + COUNTDOWN)
+     ROUND SYSTEM (FIXED)
   ========================================================= */
   function nextRound(who) {
 
-    setRoundPopup(`${who === "player" ? "You" : "Bot"} won the round!`);
+    setRoundPopup(`${who === "player" ? "You" : "Bot"} won the round`);
 
     let c = 3;
     setCountdown(3);
@@ -247,10 +252,10 @@ export default function WhotGame() {
       skipNext: null
     });
 
-    setTurn("player");
-    setLog([]);
     setRound(1);
     setWinner(null);
+    setLog([]);
+    setTurn("player");
   }
 
   const top = game?.discard?.at(-1);
@@ -266,15 +271,14 @@ export default function WhotGame() {
     const card = copy.players[0].hand[i];
 
     if (!isValidMove(card, top)) {
-      pushAlert("Invalid move");
-      playSound("alert");
+      addLog("Invalid move", "player");
       return;
     }
 
     copy.players[0].hand.splice(i, 1);
     copy.discard.push(card);
 
-    addLog(`Played ${card.number}`);
+    addLog(`Played ${card.number}`, "player");
 
     const result = applyRules(card, copy, true);
 
@@ -288,13 +292,16 @@ export default function WhotGame() {
     setTimeout(botPlay, 700);
   }
 
+  /* =========================================================
+     MARKET
+  ========================================================= */
   function drawMarket() {
     if (!gameRef.current || turnRef.current !== "player") return;
 
     let copy = JSON.parse(JSON.stringify(gameRef.current));
     copy.players[0].hand.push(copy.deck.pop());
 
-    addLog("Market draw");
+    addLog("Market draw", "player");
 
     setGame(copy);
     setTurn("bot");
@@ -317,7 +324,7 @@ export default function WhotGame() {
 
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
-      addLog("Bot drew", "bot");
+      addLog("Drew card", "bot");
       setGame(copy);
       setTurn("player");
       return;
@@ -326,7 +333,7 @@ export default function WhotGame() {
     const card = bot.hand.splice(move, 1)[0];
     copy.discard.push(card);
 
-    addLog(`Bot played ${card.number}`, "bot");
+    addLog(`Played ${card.number}`, "bot");
 
     const result = applyRules(card, copy, false);
 
@@ -360,7 +367,7 @@ export default function WhotGame() {
 
       {/* ROUND POPUP */}
       {roundPopup && (
-        <div style={{ background: "#000", padding: 10, marginBottom: 10 }}>
+        <div style={{ background: "#000", padding: 10 }}>
           <h3>{roundPopup}</h3>
           <p>Next round in {countdown}</p>
         </div>
@@ -370,19 +377,22 @@ export default function WhotGame() {
 
       <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
 
-      <div style={{ display: "flex", gap: 10, justifyContent: "center", margin: 10 }}>
+      <div style={{ display: "flex", gap: 10 }}>
         {top && <img src={drawCard(top)} width={60} />}
         <button onClick={drawMarket}>🃏 MARKET</button>
       </div>
 
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", flexWrap: "wrap" }}>
         {game.players[0].hand.map((c, i) => (
           <img key={i} src={drawCard(c)} width={60} onClick={() => playCard(i)} />
         ))}
       </div>
 
-      <div style={{ marginTop: 10 }}>
-        {log.map((l, i) => <div key={i}>{l}</div>)}
+      {/* 🧾 FIXED MOVE HISTORY */}
+      <div style={{ marginTop: 10, background: "#111", padding: 10 }}>
+        {log.map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
       </div>
 
     </div>
