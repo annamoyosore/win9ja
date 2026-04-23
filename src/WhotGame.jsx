@@ -121,6 +121,7 @@ export default function WhotGame() {
   const [coins, setCoins] = useState({ player: 3, bot: 3 });
 
   const gameRef = useRef(null);
+
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
@@ -135,7 +136,7 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     🏆 WIN SYSTEM
+     WIN SYSTEM
   ========================================================= */
   function handleWin(winnerId) {
     if (winnerId === "player") {
@@ -146,31 +147,6 @@ export default function WhotGame() {
       setCoins(p => ({ player: p.player - 3, bot: p.bot + 3 }));
     }
     playSound("alert");
-  }
-
-  /* =========================================================
-     🔁 REMATCH
-  ========================================================= */
-  function rematch() {
-    setWinner(null);
-    createGame();
-  }
-
-  /* =========================================================
-     🏠 HOME
-  ========================================================= */
-  function goHome() {
-    setGame(null);
-    setWinner(null);
-  }
-
-  /* =========================================================
-     💰 WITHDRAW SYSTEM
-  ========================================================= */
-  function withdrawGame() {
-    pushAlert("🚪 You withdrew from game");
-    setCoins(p => ({ player: p.player - 1, bot: p.bot + 1 }));
-    goHome();
   }
 
   /* =========================================================
@@ -294,31 +270,26 @@ export default function WhotGame() {
 
         <h2>WHOT GAME</h2>
 
-        {/* 💰 COINS */}
+        {/* 💰 COINS + BOT COUNT (FIXED AREA) */}
         <div>
           🧑 You: {coins.player} 🪙 | 🤖 Bot: {coins.bot} 🪙
         </div>
 
-        {/* 🏆 WIN SCREEN */}
-        {winner && (
-          <div>
-            <h3>{winner}</h3>
-            <button onClick={rematch}>🔁 Rematch</button>
-            <button onClick={goHome}>🏠 Home</button>
-          </div>
-        )}
-
-        {/* 🚪 WITHDRAW */}
-        {!winner && (
-          <button onClick={withdrawGame}>🚪 Withdraw</button>
-        )}
-
-        {/* BOARD */}
-        <div style={styles.center}>
-          {top && <img src={drawCard(top)} style={{ width: 60 }} />}
+        {/* 🤖 BOT CARD COUNT (RESTORED) */}
+        <div>
+          🤖 Bot Cards: {game.players[1].hand.length}
         </div>
 
-        {/* HAND */}
+        {/* 🃏 CENTER + MARKET BUTTON (RESTORED) */}
+        <div style={styles.center}>
+          {top && <img src={drawCard(top)} style={{ width: 60 }} />}
+
+          <button onClick={drawMarket} style={styles.marketBtn}>
+            🃏 MARKET ({game.deck.length})
+          </button>
+        </div>
+
+        {/* PLAYER HAND */}
         <div>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -371,5 +342,14 @@ const styles = {
     background: "green",
     color: "#fff",
     borderRadius: 10
+  },
+  marketBtn: {
+    background: "gold",
+    border: "none",
+    padding: 10,
+    fontWeight: "bold",
+    borderRadius: 8,
+    cursor: "pointer",
+    marginLeft: 10
   }
 };
