@@ -2,22 +2,21 @@ import { useEffect, useRef, useState } from "react";
 
 const SHAPES = ["circle", "triangle", "square", "star", "cross"];
 
-// =========================
-// SOUND (RESTORED + ACTIVE)
-// =========================
+/* =========================================================
+   🔊 SOUND ENGINE
+========================================================= */
 function playSound(type) {
   const s = {
     play: "https://actions.google.com/sounds/v1/cartoon/pop.ogg",
     draw: "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg",
     alert: "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
   };
-
   new Audio(s[type]).play().catch(() => {});
 }
 
-// =========================
-// LAST CARD WARNING
-// =========================
+/* =========================================================
+   🧠 LAST CARD SYSTEM
+========================================================= */
 function checkLastCardWarning(playerIndex, copy, pushAlert, addLog) {
   const player = copy.players[playerIndex];
 
@@ -28,9 +27,9 @@ function checkLastCardWarning(playerIndex, copy, pushAlert, addLog) {
   }
 }
 
-// =========================
-// DECK
-// =========================
+/* =========================================================
+   🃏 DECK
+========================================================= */
 function createDeck() {
   const deck = [];
 
@@ -45,18 +44,18 @@ function createDeck() {
   return deck.sort(() => Math.random() - 0.5);
 }
 
-// =========================
-// VALID MOVE
-// =========================
+/* =========================================================
+   🎯 RULE ENGINE
+========================================================= */
 function isValidMove(card, top, requestedShape) {
   if (!top) return true;
   if (requestedShape) return card.shape === requestedShape;
   return card.number === top.number || card.shape === top.shape;
 }
 
-// =========================
-// CARD RENDER
-// =========================
+/* =========================================================
+   🎨 CARD RENDER
+========================================================= */
 const cache = new Map();
 
 function drawCard(card) {
@@ -110,14 +109,16 @@ function drawCard(card) {
   return img;
 }
 
-// =========================
-// GAME
-// =========================
+/* =========================================================
+   🎮 GAME COMPONENT
+========================================================= */
 export default function WhotGame() {
+
   const [game, setGame] = useState(null);
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [winner, setWinner] = useState(null);
+  const [coins, setCoins] = useState({ player: 3, bot: 3 });
 
   const gameRef = useRef(null);
   useEffect(() => {
@@ -133,6 +134,48 @@ export default function WhotGame() {
     setTimeout(() => setAlerts(p => p.slice(1)), 2500);
   }
 
+  /* =========================================================
+     🏆 WIN SYSTEM
+  ========================================================= */
+  function handleWin(winnerId) {
+    if (winnerId === "player") {
+      setWinner("YOU WIN 🏆");
+      setCoins(p => ({ player: p.player + 3, bot: p.bot - 3 }));
+    } else {
+      setWinner("BOT WINS 🤖🏆");
+      setCoins(p => ({ player: p.player - 3, bot: p.bot + 3 }));
+    }
+    playSound("alert");
+  }
+
+  /* =========================================================
+     🔁 REMATCH
+  ========================================================= */
+  function rematch() {
+    setWinner(null);
+    createGame();
+  }
+
+  /* =========================================================
+     🏠 HOME
+  ========================================================= */
+  function goHome() {
+    setGame(null);
+    setWinner(null);
+  }
+
+  /* =========================================================
+     💰 WITHDRAW SYSTEM
+  ========================================================= */
+  function withdrawGame() {
+    pushAlert("🚪 You withdrew from game");
+    setCoins(p => ({ player: p.player - 1, bot: p.bot + 1 }));
+    goHome();
+  }
+
+  /* =========================================================
+     INIT GAME
+  ========================================================= */
   function createGame() {
     const deck = createDeck();
 
@@ -151,9 +194,9 @@ export default function WhotGame() {
 
   const top = game?.discard?.at(-1);
 
-  // =========================
-  // PLAYER MOVE
-  // =========================
+  /* =========================================================
+     PLAYER MOVE
+  ========================================================= */
   function playCard(i) {
     const g = gameRef.current;
     if (!g || winner) return;
@@ -169,14 +212,18 @@ export default function WhotGame() {
 
     checkLastCardWarning(0, copy, pushAlert, addLog);
 
-    setGame(copy);
+    if (copy.players[0].hand.length === 0) {
+      handleWin("player");
+      return;
+    }
 
+    setGame(copy);
     setTimeout(botPlay, 1200);
   }
 
-  // =========================
-  // MARKET
-  // =========================
+  /* =========================================================
+     MARKET
+  ========================================================= */
   function drawMarket() {
     const g = gameRef.current;
     if (!g || winner) return;
@@ -188,13 +235,12 @@ export default function WhotGame() {
     addLog("Market draw");
 
     setGame(copy);
-
     setTimeout(botPlay, 1200);
   }
 
-  // =========================
-  // BOT
-  // =========================
+  /* =========================================================
+     BOT
+  ========================================================= */
   function botPlay() {
     const g = gameRef.current;
     if (!g || winner) return;
@@ -221,12 +267,17 @@ export default function WhotGame() {
 
     checkLastCardWarning(1, copy, pushAlert, addLog);
 
+    if (bot.hand.length === 0) {
+      handleWin("bot");
+      return;
+    }
+
     setGame(copy);
   }
 
-  // =========================
-  // UI
-  // =========================
+  /* =========================================================
+     UI
+  ========================================================= */
   if (!game) {
     return (
       <div style={styles.bg}>
@@ -240,15 +291,34 @@ export default function WhotGame() {
   return (
     <div style={styles.bg}>
       <div style={styles.box}>
+
         <h2>WHOT GAME</h2>
 
-        {/* ✅ FIXED: BOT CARD COUNT RESTORED */}
-        <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
+        {/* 💰 COINS */}
+        <div>
+          🧑 You: {coins.player} 🪙 | 🤖 Bot: {coins.bot} 🪙
+        </div>
 
+        {/* 🏆 WIN SCREEN */}
+        {winner && (
+          <div>
+            <h3>{winner}</h3>
+            <button onClick={rematch}>🔁 Rematch</button>
+            <button onClick={goHome}>🏠 Home</button>
+          </div>
+        )}
+
+        {/* 🚪 WITHDRAW */}
+        {!winner && (
+          <button onClick={withdrawGame}>🚪 Withdraw</button>
+        )}
+
+        {/* BOARD */}
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
         </div>
 
+        {/* HAND */}
         <div>
           {game.players[0].hand.map((c, i) => (
             <img
@@ -260,17 +330,19 @@ export default function WhotGame() {
           ))}
         </div>
 
+        {/* LOG */}
         <div style={styles.history}>
           {log.map((l, i) => <div key={i}>• {l}</div>)}
         </div>
+
       </div>
     </div>
   );
 }
 
-// =========================
-// STYLES (UNCHANGED)
-// =========================
+/* =========================================================
+   🎨 STYLES
+========================================================= */
 const styles = {
   bg: {
     minHeight: "100vh",
