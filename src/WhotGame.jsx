@@ -163,41 +163,49 @@ export default function WhotGame() {
   /* =========================================================
      RULES 1,2,8,14 (FIXED)
   ========================================================= */
-  function applyRules(card, copy, isPlayer) {
-    const opponent = isPlayer ? 1 : 0;
+  function applyRules(card, copy, isPlayer, pushAlert, addLog) {
+  const opponent = isPlayer ? 1 : 0;
 
-    if (card.number === 1) {
-      copy.skipNext = opponent;
-      pushAlert("🟡 HOLD ON");
-      addLog("Rule 1 activated");
-    }
-
-    if (card.number === 2) {
-      copy.players[opponent].hand.push(copy.deck.pop());
-      copy.players[opponent].hand.push(copy.deck.pop());
-      copy.skipNext = opponent;
-      pushAlert("🔴 PICK 2");
-      addLog("Rule 2 activated");
-    }
-
-    if (card.number === 8) {
-      copy.skipNext = opponent;
-      pushAlert("🔵 SUSPEND");
-      addLog("Rule 8 activated");
-    }
-
-    // 🟢 FIXED GENERAL MARKET
-    if (card.number === 14) {
-      const opp = isPlayer ? 1 : 0;
-
-      copy.players[opp].hand.push(copy.deck.pop());
-      copy.skipNext = opp;
-
-      pushAlert("🟢 GENERAL MARKET (DRAW 1 + SKIP)");
-      addLog("Rule 14 activated");
-      playSound("alert");
-    }
+  // 🔢 1 - HOLD ON (extra turn)
+  if (card.number === 1) {
+    pushAlert("🟡 HOLD ON - PLAY AGAIN");
+    addLog("Rule 1: extra turn granted");
+    // NO skipNext, player continues automatically
   }
+
+  // 🔢 2 - PICK TWO + SKIP
+  if (card.number === 2) {
+    copy.players[opponent].hand.push(copy.deck.pop());
+    copy.players[opponent].hand.push(copy.deck.pop());
+
+    copy.skipNext = opponent;
+
+    pushAlert("🔴 PICK TWO");
+    addLog("Rule 2: opponent draws 2 and skips");
+  }
+
+  // 🔢 8 - SUSPENSION (SKIP ONLY)
+  if (card.number === 8) {
+    copy.skipNext = opponent;
+
+    pushAlert("🔵 SUSPENSION");
+    addLog("Rule 8: opponent skipped");
+  }
+
+  // 🔢 14 - GENERAL MARKET (ALL OPPONENTS DRAW 1)
+  if (card.number === 14) {
+    copy.players.forEach((p, idx) => {
+      if (idx !== opponent) {
+        p.hand.push(copy.deck.pop());
+      }
+    });
+
+    pushAlert("🟢 GENERAL MARKET");
+    addLog("Rule 14: all opponents draw 1");
+
+    playSound("alert");
+  }
+}
 
   /* =========================================================
      INIT GAME
@@ -339,6 +347,39 @@ export default function WhotGame() {
       <div style={styles.box}>
 
         <h2>WHOT GAME</h2>
+{/* 🟡 ROUND + WITHDRAW */}
+<div style={{
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  margin: "10px 0"
+}}>
+
+  <div style={{
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "gold"
+  }}>
+    ROUND {round} / {maxRounds}
+  </div>
+
+  {!winner && (
+    <button
+      onClick={withdrawGame}
+      style={{
+        background: "red",
+        color: "#fff",
+        padding: "8px 12px",
+        border: "none",
+        borderRadius: 6,
+        fontWeight: "bold",
+        cursor: "pointer"
+      }}
+    >
+      🚪 Withdraw
+    </button>
+  )}
+</div>
 
         {/* 💰 COINS RESTORED */}
         <div>
