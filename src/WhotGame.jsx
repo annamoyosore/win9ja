@@ -15,33 +15,27 @@ function playSound(type) {
 }
 
 /* =========================================================
-   🧠 RULES (RESTORED FULL LOGIC)
+   🧠 RULE ENGINE (LOCKED SYSTEM)
 ========================================================= */
-function applyRules(card, copy, isPlayer, pushAlert) {
-  const opponent = isPlayer ? 1 : 0;
+function ruleEngine(copy, pushAlert, addLog) {
+  if (copy.skipNext !== null && copy.skipNext !== undefined) {
+    if (copy.skipNext === 0) {
+      pushAlert("⛔ YOU SKIPPED");
+      addLog("You were skipped");
+      copy.skipNext = null;
+      copy.turn = "bot";
+      return true;
+    }
 
-  // 2 → Pick 2 + skip
-  if (card.number === 2) {
-    copy.players[opponent].hand.push(copy.deck.pop());
-    copy.players[opponent].hand.push(copy.deck.pop());
-    copy.skipNext = opponent;
-    pushAlert("🔴 PICK 2");
+    if (copy.skipNext === 1) {
+      pushAlert("🤖 BOT SKIPPED");
+      addLog("Bot was skipped");
+      copy.skipNext = null;
+      copy.turn = "player";
+      return true;
+    }
   }
-
-  // 8 → Suspend opponent
-  if (card.number === 8) {
-    copy.skipNext = opponent;
-    pushAlert("🔵 SUSPENSION");
-  }
-
-  // 14 → General market (everyone draws 1 except player)
-  if (card.number === 14) {
-    copy.players.forEach((p, idx) => {
-      if (idx !== opponent) p.hand.push(copy.deck.pop());
-    });
-    copy.skipNext = opponent;
-    pushAlert("🟢 GENERAL MARKET");
-  }
+  return false;
 }
 
 /* =========================================================
@@ -64,14 +58,13 @@ function createDeck() {
 /* =========================================================
    🎯 VALID MOVE
 ========================================================= */
-function isValidMove(card, top, requestedShape) {
+function isValidMove(card, top) {
   if (!top) return true;
-  if (requestedShape) return card.shape === requestedShape;
   return card.number === top.number || card.shape === top.shape;
 }
 
 /* =========================================================
-   🎨 CARD RENDER (UNCHANGED)
+   🎨 CARD RENDER
 ========================================================= */
 const cache = new Map();
 
@@ -130,14 +123,13 @@ function drawCard(card) {
    🎮 GAME
 ========================================================= */
 export default function WhotGame() {
-
   const [game, setGame] = useState(null);
   const [log, setLog] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [winner, setWinner] = useState(null);
-  const [coins, setCoins] = useState({ player: 3, bot: 3 });
 
   const gameRef = useRef(null);
+
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
@@ -152,21 +144,59 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     WIN CHECK
+     RULES (1,2,8,14 LOCKED)
   ========================================================= */
-  function handleWin(winnerId) {
-    if (winnerId === "player") {
-      setWinner("YOU WIN 🏆");
-      setCoins(p => ({ player: p.player + 3, bot: p.bot - 3 }));
-    } else {
-      setWinner("BOT WINS 🤖🏆");
-      setCoins(p => ({ player: p.player - 3, bot: p.bot + 3 }));
+  function applyRules(card, copy, isPlayer) {
+    const opponent = isPlayer ? 1 : 0;
+
+    if (card.number === 1) {
+      copy.skipNext = opponent;
+      pushAlert("🟡 HOLD ON");
+      addLog("Rule 1 activated");
     }
-    playSound("alert");
+
+    if (card.number === 2) {
+      copy.players[opponent].hand.push(copy.deck.pop());
+      copy.players[opponent].hand.push(copy.deck.pop());
+      copy.skipNext = opponent;
+      pushAlert("🔴 PICK 2");
+      addLog("Rule 2 activated");
+    }
+
+    if (card.number === 8) {
+      copy.skipNext = opponent;
+      pushAlert("🔵 SUSPEND");
+      addLog("Rule 8 activated");
+    }
+
+    if (card.number === 14) {
+      copy.players.forEach((p, idx) => {
+        if (idx !== opponent) p.hand.push(copy.deck.pop());
+      });
+      copy.skipNext = opponent;
+      pushAlert("🟢 GENERAL MARKET (14)");
+      addLog("Rule 14 activated");
+      playSound("alert");
+    }
   }
 
   /* =========================================================
-     INIT GAME
+     WIN CHECK
+  ========================================================= */
+  function checkWin(copy) {
+    if (copy.players[0].hand.length === 0) {
+      setWinner("YOU WIN 🏆");
+      return true;
+    }
+    if (copy.players[1].hand.length === 0) {
+      setWinner("BOT WINS 🤖🏆");
+      return true;
+    }
+    return false;
+  }
+
+  /* =========================================================
+     START GAME
   ========================================================= */
   function createGame() {
     const deck = createDeck();
@@ -183,6 +213,8 @@ export default function WhotGame() {
     });
 
     setWinner(null);
+    setLog([]);
+    setAlerts([]);
   }
 
   const top = game?.discard?.at(-1);
@@ -195,7 +227,18 @@ export default function WhotGame() {
     if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
+    if (ruleEngine(copy, pushAlert, addLog)) {
+      setGame(copy);
+      return;
+    }
+
     const card = copy.players[0].hand[i];
+
+    if (!isValidMove(card, top)) {
+      pushAlert("❌ Invalid move");
+      return;
+    }
 
     copy.players[0].hand.splice(i, 1);
     copy.discard.push(card);
@@ -203,12 +246,9 @@ export default function WhotGame() {
     playSound("play");
     addLog(`You played ${card.number}`);
 
-    applyRules(card, copy, true, pushAlert);
+    applyRules(card, copy, true);
 
-    if (copy.players[0].hand.length === 0) {
-      handleWin("player");
-      return;
-    }
+    if (checkWin(copy)) return;
 
     setGame(copy);
     setTimeout(botPlay, 1200);
@@ -222,6 +262,7 @@ export default function WhotGame() {
     if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
     copy.players[0].hand.push(copy.deck.pop());
 
     playSound("draw");
@@ -232,13 +273,19 @@ export default function WhotGame() {
   }
 
   /* =========================================================
-     BOT (UNCHANGED LOGIC)
+     BOT MOVE
   ========================================================= */
   function botPlay() {
     const g = gameRef.current;
     if (!g || winner) return;
 
     const copy = JSON.parse(JSON.stringify(g));
+
+    if (ruleEngine(copy, pushAlert, addLog)) {
+      setGame(copy);
+      return;
+    }
+
     const bot = copy.players[1];
 
     const move = bot.hand.findIndex(c =>
@@ -247,7 +294,6 @@ export default function WhotGame() {
 
     if (move === -1) {
       bot.hand.push(copy.deck.pop());
-      playSound("draw");
       addLog("Bot drew");
       return setGame(copy);
     }
@@ -258,19 +304,16 @@ export default function WhotGame() {
     playSound("play");
     addLog(`Bot played ${card.number}`);
 
-    applyRules(card, copy, false, pushAlert);
+    applyRules(card, copy, false);
 
-    if (bot.hand.length === 0) {
-      handleWin("bot");
-      return;
-    }
+    if (checkWin(copy)) return;
 
     setGame(copy);
   }
 
   /* =========================================================
-     UI (FIXED ONLY MISSING ELEMENTS)
-========================================================= */
+     UI
+  ========================================================= */
   if (!game) {
     return (
       <div style={styles.bg}>
@@ -287,16 +330,10 @@ export default function WhotGame() {
 
         <h2>WHOT GAME</h2>
 
-        <div>
-          🧑 You: {coins.player} 🪙 | 🤖 Bot: {coins.bot} 🪙
-        </div>
+        {alerts.map((a, i) => <div key={i}>{a}</div>)}
 
-        {/* 🤖 BOT CARD COUNT RESTORED */}
-        <div>
-          🤖 Bot Cards: {game.players[1].hand.length}
-        </div>
+        <div>🤖 Bot Cards: {game.players[1].hand.length}</div>
 
-        {/* 🃏 MARKET BUTTON RESTORED */}
         <div style={styles.center}>
           {top && <img src={drawCard(top)} style={{ width: 60 }} />}
 
@@ -363,7 +400,7 @@ const styles = {
     padding: 10,
     fontWeight: "bold",
     borderRadius: 8,
-    cursor: "pointer",
-    marginLeft: 10
+    marginLeft: 10,
+    cursor: "pointer"
   }
 };
