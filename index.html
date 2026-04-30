@@ -2,19 +2,64 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Whot Game</title>
+
+    <!-- 📱 Mobile Optimization -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <!-- 🧠 SEO / App Identity -->
+    <title>Game Hub | Whot • Bottle • Dice</title>
+    <meta name="description" content="Play Whot, Bottle Flip, and Dice Battle online." />
+
+    <!-- 🎨 Theme Color (Android browser UI) -->
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- 🔥 Better font rendering -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
     <style>
-      body {
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
         margin: 0;
+        padding: 0;
         font-family: Arial, sans-serif;
         background: #0f172a;
         color: white;
+        height: 100%;
+        overflow-x: hidden;
+      }
+
+      #root {
+        height: 100%;
       }
 
       button {
         cursor: pointer;
+        outline: none;
+        border: none;
+      }
+
+      button:active {
+        transform: scale(0.97);
+      }
+
+      /* 🔥 Smooth text */
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* 🚫 Prevent text selection on buttons */
+      button {
+        user-select: none;
+      }
+
+      /* 📱 Disable pull-to-refresh feel */
+      body {
+        overscroll-behavior: none;
       }
     </style>
   </head>
@@ -22,6 +67,7 @@
   <body>
     <div id="root"></div>
 
+    <!-- ⚡ React Entry -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
