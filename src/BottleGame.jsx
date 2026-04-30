@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 export default function BottleGame() {
   const [playerChoice, setPlayerChoice] = useState(null);
@@ -6,14 +6,63 @@ export default function BottleGame() {
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
+  const [phase, setPhase] = useState("idle"); // idle | spinning | slowing | result
+
+  const audioCtxRef = useRef(null);
+
+  // 🔊 SOUND ENGINE (no external files)
+  const playSound = (type) => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext ||
+        window.webkitAudioContext)();
+    }
+
+    const ctx = audioCtxRef.current;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === "spin") {
+      osc.frequency.value = 300;
+      gain.gain.value = 0.05;
+    }
+
+    if (type === "land") {
+      osc.frequency.value = 120;
+      gain.gain.value = 0.1;
+    }
+
+    osc.start();
+
+    setTimeout(() => {
+      osc.stop();
+    }, type === "spin" ? 300 : 150);
+  };
+
+  // 🎯 PSEUDO SERVER (replace later with real backend)
+  const getServerResult = (playerChoice) => {
+    const botChoice = playerChoice === "HEAD" ? "BOTTOM" : "HEAD";
+
+    const rand = Math.random();
+
+    let outcome;
+    if (rand < 0.4) outcome = "HEAD";
+    else if (rand < 0.8) outcome = "BOTTOM";
+    else outcome = "MISS";
+
+    let winner;
+    if (outcome === playerChoice) winner = "USER";
+    else if (outcome === "MISS") winner = "ADMIN";
+    else winner = "BOT";
+
+    return { outcome, winner, botChoice };
+  };
 
   const choose = (choice) => {
     if (spinning) return;
-
-    const bot = choice === "HEAD" ? "BOTTOM" : "HEAD";
-
     setPlayerChoice(choice);
-    setBotChoice(bot);
     setResult("");
   };
 
@@ -21,30 +70,46 @@ export default function BottleGame() {
     if (!playerChoice || spinning) return;
 
     setSpinning(true);
+    setPhase("spinning");
+    setResult("");
 
-    // Random spin
-    const spinDeg = Math.floor(Math.random() * 720) + 1080;
-    setRotation(spinDeg);
+    playSound("spin");
 
+    // 🔐 LOCK RESULT FIRST
+    const { outcome, winner, botChoice } = getServerResult(playerChoice);
+    setBotChoice(botChoice);
+
+    // 🎯 Map outcome to angle
+    let targetAngle;
+    if (outcome === "HEAD") targetAngle = 60;
+    else if (outcome === "BOTTOM") targetAngle = 200;
+    else targetAngle = 320;
+
+    const spinBase = Math.floor(Math.random() * 720) + 1080;
+    const finalRotation = spinBase + targetAngle;
+
+    setRotation(finalRotation);
+
+    // ⏳ suspense
     setTimeout(() => {
-      // Determine result based on final angle
-      const finalDeg = spinDeg % 360;
+      setPhase("slowing");
+    }, 1400);
 
-      let outcome;
-      if (finalDeg < 180) {
-        outcome = "HEAD";
-      } else {
-        outcome = "BOTTOM";
-      }
+    // 🎉 result phase
+    setTimeout(() => {
+      playSound("land");
 
-      if (outcome === playerChoice) {
+      if (winner === "USER") {
         setResult("🎉 You Win!");
+      } else if (winner === "ADMIN") {
+        setResult("🏦 Admin takes the pot!");
       } else {
         setResult("🤖 Bot Wins!");
       }
 
+      setPhase("result");
       setSpinning(false);
-    }, 2000);
+    }, 2200);
   };
 
   return (
@@ -56,9 +121,8 @@ export default function BottleGame() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          color: white;
           font-family: Arial;
-          position: relative;
+          color: white;
           background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364);
           background-size: 400% 400%;
           animation: bg 10s ease infinite;
@@ -70,91 +134,125 @@ export default function BottleGame() {
           100% {background-position: 0% 50%;}
         }
 
-        .wheel-area {
-          position: relative;
-          margin: 30px 0;
+        .controls button {
+          margin: 5px;
+          padding: 10px 18px;
+          border: none;
+          border-radius: 20px;
+          cursor: pointer;
+          font-weight: bold;
         }
 
-        .wheel {
-          width: 150px;
-          height: 150px;
-          border-radius: 50%;
-          border: 6px solid white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          transition: transform 2s ease-out;
-          background: linear-gradient(to bottom, #ff9800 50%, #2196f3 50%);
+        .head { background: #4caf50; color: white; }
+        .bottom { background: #2196f3; color: white; }
+        .spin { background: #ff5722; color: white; margin-top: 10px; }
+
+        .bottle-area {
+          position: relative;
+          margin: 40px 0;
         }
 
         .pointer {
           position: absolute;
-          top: -15px;
+          top: -25px;
           left: 50%;
           transform: translateX(-50%);
-          font-size: 20px;
+          font-size: 30px;
         }
 
-        button {
-          margin: 5px;
-          padding: 10px 20px;
-          border: none;
-          border-radius: 20px;
-          cursor: pointer;
+        .labels {
+          position: absolute;
+          top: -55px;
+          width: 280px;
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+          opacity: 0.8;
         }
 
-        .choice {
-          background: #4caf50;
-          color: white;
+        .bottle {
+          font-size: 120px;
+          transition: transform 2.2s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        .spin {
-          background: #ff5722;
-          color: white;
-          margin-top: 10px;
+        /* 🔥 bounce physics */
+        .bounce {
+          animation: bounce 0.4s ease;
+        }
+
+        @keyframes bounce {
+          0% { transform: scale(1) rotate(var(--rot)); }
+          50% { transform: scale(1.25) rotate(var(--rot)); }
+          100% { transform: scale(1) rotate(var(--rot)); }
+        }
+
+        .status {
+          font-size: 14px;
+          opacity: 0.8;
         }
 
         .result {
           margin-top: 20px;
-          font-size: 20px;
+          font-size: 22px;
+          animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
       <div className="container">
-        <h2>Head or Bottom</h2>
+        <h2>Bottle Flip (Head / Bottom)</h2>
 
-        {/* Choices */}
-        <div>
-          <button className="choice" onClick={() => choose("HEAD")}>
+        {/* 🎯 Choice */}
+        <div className="controls">
+          <button className="head" onClick={() => choose("HEAD")}>
             Head
           </button>
-          <button className="choice" onClick={() => choose("BOTTOM")}>
+          <button className="bottom" onClick={() => choose("BOTTOM")}>
             Bottom
           </button>
         </div>
 
-        {/* Wheel */}
-        <div className="wheel-area">
+        {/* 🍾 Bottle */}
+        <div className="bottle-area">
           <div className="pointer">🔻</div>
+
+          <div className="labels">
+            <span>HEAD</span>
+            <span>BOTTOM</span>
+            <span>MISS</span>
+          </div>
+
           <div
-            className="wheel"
-            style={{ transform: `rotate(${rotation}deg)` }}
+            className={`bottle ${phase === "result" ? "bounce" : ""}`}
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              "--rot": `${rotation}deg`
+            }}
           >
-            HEAD / BOTTOM
+            🍾
           </div>
         </div>
 
-        {/* Spin */}
+        {/* 🔄 Spin */}
         <button className="spin" onClick={spin}>
-          {spinning ? "Spinning..." : "Spin"}
+          {spinning ? "Spinning..." : "Flip Bottle"}
         </button>
 
-        {/* Info */}
+        {/* Status */}
+        {phase === "spinning" && <p className="status">🌀 Spinning...</p>}
+        {phase === "slowing" && <p className="status">⏳ Almost there...</p>}
+
         {playerChoice && (
-          <p>🧑 You: {playerChoice} | 🤖 Bot: {botChoice}</p>
+          <p className="status">
+            🧑 You: {playerChoice} | 🤖 Bot: {botChoice || "..."}
+          </p>
         )}
 
+        {/* Result */}
         {result && <div className="result">{result}</div>}
       </div>
     </>
