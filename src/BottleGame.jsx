@@ -1,145 +1,161 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function BottleGame() {
-  const [flipping, setFlipping] = useState(false);
-  const [result, setResult] = useState("");
+  const [playerChoice, setPlayerChoice] = useState(null);
+  const [botChoice, setBotChoice] = useState(null);
+  const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
+  const [result, setResult] = useState("");
 
-  const flipBottle = () => {
-    if (flipping) return;
+  const choose = (choice) => {
+    if (spinning) return;
 
-    setFlipping(true);
+    const bot = choice === "HEAD" ? "BOTTOM" : "HEAD";
+
+    setPlayerChoice(choice);
+    setBotChoice(bot);
     setResult("");
+  };
 
-    const spin = Math.floor(Math.random() * 720) + 720;
-    setRotation(spin);
+  const spin = () => {
+    if (!playerChoice || spinning) return;
+
+    setSpinning(true);
+
+    // Random spin
+    const spinDeg = Math.floor(Math.random() * 720) + 1080;
+    setRotation(spinDeg);
 
     setTimeout(() => {
-      const success = Math.random() > 0.5;
-      setResult(success ? "🎉 Perfect Landing!" : "💥 Failed Flip!");
-      setFlipping(false);
-    }, 1200);
+      // Determine result based on final angle
+      const finalDeg = spinDeg % 360;
+
+      let outcome;
+      if (finalDeg < 180) {
+        outcome = "HEAD";
+      } else {
+        outcome = "BOTTOM";
+      }
+
+      if (outcome === playerChoice) {
+        setResult("🎉 You Win!");
+      } else {
+        setResult("🤖 Bot Wins!");
+      }
+
+      setSpinning(false);
+    }, 2000);
   };
 
   return (
     <>
-      {/* 🔥 Embedded Styles */}
       <style>{`
-        .bottle-game-container {
+        .container {
           height: 100vh;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          overflow: hidden;
-          font-family: Arial, sans-serif;
           color: white;
+          font-family: Arial;
           position: relative;
-
-          background: linear-gradient(-45deg, #1e3c72, #2a5298, #6a11cb, #2575fc);
+          background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364);
           background-size: 400% 400%;
-          animation: gradientBG 10s ease infinite;
+          animation: bg 10s ease infinite;
         }
 
-        @keyframes gradientBG {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        @keyframes bg {
+          0% {background-position: 0% 50%;}
+          50% {background-position: 100% 50%;}
+          100% {background-position: 0% 50%;}
         }
 
-        .title {
-          font-size: 2rem;
-          margin-bottom: 20px;
-          z-index: 1;
+        .wheel-area {
+          position: relative;
+          margin: 30px 0;
         }
 
-        .bottle-area {
+        .wheel {
+          width: 150px;
           height: 150px;
+          border-radius: 50%;
+          border: 6px solid white;
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 1;
+          font-size: 20px;
+          transition: transform 2s ease-out;
+          background: linear-gradient(to bottom, #ff9800 50%, #2196f3 50%);
         }
 
-        .bottle {
-          font-size: 60px;
-          transition: transform 1.2s ease-in-out;
+        .pointer {
+          position: absolute;
+          top: -15px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 20px;
         }
 
-        .flip-btn {
-          margin-top: 20px;
-          padding: 12px 24px;
-          background: #ff9800;
+        button {
+          margin: 5px;
+          padding: 10px 20px;
           border: none;
-          border-radius: 25px;
-          color: white;
-          font-size: 16px;
+          border-radius: 20px;
           cursor: pointer;
-          transition: 0.3s;
-          z-index: 1;
         }
 
-        .flip-btn:hover {
+        .choice {
+          background: #4caf50;
+          color: white;
+        }
+
+        .spin {
           background: #ff5722;
+          color: white;
+          margin-top: 10px;
         }
 
         .result {
-          margin-top: 15px;
-          font-size: 18px;
-          z-index: 1;
-        }
-
-        /* Particles */
-        .particles {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          z-index: 0;
-        }
-
-        .particles::before,
-        .particles::after {
-          content: "";
-          position: absolute;
-          width: 200%;
-          height: 200%;
-          background-image: radial-gradient(white 2px, transparent 2px);
-          background-size: 50px 50px;
-          animation: moveParticles 20s linear infinite;
-          opacity: 0.2;
-        }
-
-        .particles::after {
-          animation-duration: 30s;
-        }
-
-        @keyframes moveParticles {
-          from { transform: translateY(0); }
-          to { transform: translateY(-200px); }
+          margin-top: 20px;
+          font-size: 20px;
         }
       `}</style>
 
-      {/* 🎮 Game UI */}
-      <div className="bottle-game-container">
-        <div className="particles"></div>
+      <div className="container">
+        <h2>Head or Bottom</h2>
 
-        <h1 className="title">Bottle Flip Challenge</h1>
+        {/* Choices */}
+        <div>
+          <button className="choice" onClick={() => choose("HEAD")}>
+            Head
+          </button>
+          <button className="choice" onClick={() => choose("BOTTOM")}>
+            Bottom
+          </button>
+        </div>
 
-        <div className="bottle-area">
+        {/* Wheel */}
+        <div className="wheel-area">
+          <div className="pointer">🔻</div>
           <div
-            className="bottle"
+            className="wheel"
             style={{ transform: `rotate(${rotation}deg)` }}
           >
-            🍾
+            HEAD / BOTTOM
           </div>
         </div>
 
-        <button className="flip-btn" onClick={flipBottle}>
-          {flipping ? "Flipping..." : "Flip Bottle"}
+        {/* Spin */}
+        <button className="spin" onClick={spin}>
+          {spinning ? "Spinning..." : "Spin"}
         </button>
 
-        {result && <p className="result">{result}</p>}
+        {/* Info */}
+        {playerChoice && (
+          <p>🧑 You: {playerChoice} | 🤖 Bot: {botChoice}</p>
+        )}
+
+        {result && <div className="result">{result}</div>}
       </div>
     </>
   );
