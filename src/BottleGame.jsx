@@ -6,11 +6,11 @@ export default function BottleGame() {
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
-  const [phase, setPhase] = useState("idle"); // idle | spinning | slowing | result
+  const [phase, setPhase] = useState("idle");
 
   const audioCtxRef = useRef(null);
 
-  // 🔊 SOUND ENGINE (no external files)
+  // 🔊 SOUND
   const playSound = (type) => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext ||
@@ -35,22 +35,30 @@ export default function BottleGame() {
     }
 
     osc.start();
-
-    setTimeout(() => {
-      osc.stop();
-    }, type === "spin" ? 300 : 150);
+    setTimeout(() => osc.stop(), type === "spin" ? 300 : 150);
   };
 
-  // 🎯 PSEUDO SERVER (replace later with real backend)
+  // 🎯 3-LOGIC ENGINE (weighted)
   const getServerResult = (playerChoice) => {
     const botChoice = playerChoice === "HEAD" ? "BOTTOM" : "HEAD";
 
-    const rand = Math.random();
+    const outcomes = [
+      { type: "HEAD", weight: 0.4 },
+      { type: "BOTTOM", weight: 0.4 },
+      { type: "MISS", weight: 0.2 }
+    ];
 
-    let outcome;
-    if (rand < 0.4) outcome = "HEAD";
-    else if (rand < 0.8) outcome = "BOTTOM";
-    else outcome = "MISS";
+    let rand = Math.random();
+    let cumulative = 0;
+    let outcome = "MISS";
+
+    for (let o of outcomes) {
+      cumulative += o.weight;
+      if (rand <= cumulative) {
+        outcome = o.type;
+        break;
+      }
+    }
 
     let winner;
     if (outcome === playerChoice) winner = "USER";
@@ -79,11 +87,22 @@ export default function BottleGame() {
     const { outcome, winner, botChoice } = getServerResult(playerChoice);
     setBotChoice(botChoice);
 
-    // 🎯 Map outcome to angle
+    // 🎯 TRUE ANGLE ZONES
     let targetAngle;
-    if (outcome === "HEAD") targetAngle = 60;
-    else if (outcome === "BOTTOM") targetAngle = 200;
-    else targetAngle = 320;
+
+    switch (outcome) {
+      case "HEAD":
+        targetAngle = Math.random() * 120 + 10;   // 0°–130°
+        break;
+      case "BOTTOM":
+        targetAngle = Math.random() * 120 + 140;  // 140°–260°
+        break;
+      case "MISS":
+        targetAngle = Math.random() * 80 + 280;   // 280°–360°
+        break;
+      default:
+        targetAngle = 0;
+    }
 
     const spinBase = Math.floor(Math.random() * 720) + 1080;
     const finalRotation = spinBase + targetAngle;
@@ -95,7 +114,7 @@ export default function BottleGame() {
       setPhase("slowing");
     }, 1400);
 
-    // 🎉 result phase
+    // 🎉 result
     setTimeout(() => {
       playSound("land");
 
@@ -143,9 +162,9 @@ export default function BottleGame() {
           font-weight: bold;
         }
 
-        .head { background: #4caf50; color: white; }
-        .bottom { background: #2196f3; color: white; }
-        .spin { background: #ff5722; color: white; margin-top: 10px; }
+        .head { background: #4caf50; }
+        .bottom { background: #2196f3; }
+        .spin { background: #ff5722; margin-top: 10px; }
 
         .bottle-area {
           position: relative;
@@ -175,7 +194,6 @@ export default function BottleGame() {
           transition: transform 2.2s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* 🔥 bounce physics */
         .bounce {
           animation: bounce 0.4s ease;
         }
@@ -204,9 +222,9 @@ export default function BottleGame() {
       `}</style>
 
       <div className="container">
-        <h2>Bottle Flip (Head / Bottom)</h2>
+        <h2>Bottle Flip (3 Logic)</h2>
 
-        {/* 🎯 Choice */}
+        {/* Choice */}
         <div className="controls">
           <button className="head" onClick={() => choose("HEAD")}>
             Head
@@ -216,7 +234,7 @@ export default function BottleGame() {
           </button>
         </div>
 
-        {/* 🍾 Bottle */}
+        {/* Bottle */}
         <div className="bottle-area">
           <div className="pointer">🔻</div>
 
@@ -237,7 +255,7 @@ export default function BottleGame() {
           </div>
         </div>
 
-        {/* 🔄 Spin */}
+        {/* Spin */}
         <button className="spin" onClick={spin}>
           {spinning ? "Spinning..." : "Flip Bottle"}
         </button>
