@@ -2,10 +2,11 @@ import { useState, useRef } from "react";
 
 export default function FreeSpinWheelAdvanced() {
   const segments = [
-    { label: "❌ Lose", weight: 0.35 },
-    { label: "🔁 Try", weight: 0.2 },
+    { label: "❌ Lose", weight: 0.25 },
+    { label: "➖ -50%", weight: 0.2 },
+    { label: "🔁 Try", weight: 0.15 },
     { label: "x2", weight: 0.2 },
-    { label: "x3", weight: 0.15 },
+    { label: "x3", weight: 0.1 },
     { label: "x10", weight: 0.05 },
     { label: "🎁 Spin", weight: 0.05 }
   ];
@@ -18,6 +19,9 @@ export default function FreeSpinWheelAdvanced() {
   const [total, setTotal] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [error, setError] = useState("");
+  const [flowers, setFlowers] = useState([]);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [winState, setWinState] = useState(null); // "win" | "lose" | "partial"
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
@@ -31,23 +35,28 @@ export default function FreeSpinWheelAdvanced() {
 
     const ctx = audioCtxRef.current;
 
-    const tone = (f, d) => {
+    const tone = (f, d, v = 0.1) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.connect(g);
       g.connect(ctx.destination);
       o.frequency.value = f;
-      g.gain.value = 0.08;
+      g.gain.value = v;
       o.start();
       setTimeout(() => o.stop(), d);
     };
 
-    if (type === "win") [400, 600, 900].forEach((f, i) =>
-      setTimeout(() => tone(f, 120), i * 120)
-    );
-    if (type === "lose") [500, 300, 150].forEach((f, i) =>
-      setTimeout(() => tone(f, 150), i * 150)
-    );
+    if (type === "win") {
+      [400, 700, 1000].forEach((f, i) =>
+        setTimeout(() => tone(f, 200), i * 150)
+      );
+    }
+
+    if (type === "lose") {
+      [500, 300, 120].forEach((f, i) =>
+        setTimeout(() => tone(f, 200), i * 180)
+      );
+    }
   };
 
   const getIndex = () => {
@@ -57,6 +66,15 @@ export default function FreeSpinWheelAdvanced() {
       if (r <= sum) return i;
     }
     return 0;
+  };
+
+  const spawnFlowers = () => {
+    const arr = Array.from({ length: 40 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100
+    }));
+    setFlowers(arr);
+    setTimeout(() => setFlowers([]), 2500);
   };
 
   const spin = () => {
@@ -70,17 +88,15 @@ export default function FreeSpinWheelAdvanced() {
 
     setSpinning(true);
     setResult("");
+    setShowOverlay(false);
 
     const index = getIndex();
     const landed = segments[index].label;
 
-    // ✅ CORRECT CENTER ALIGNMENT
     const stopAngle =
       360 - (index * segmentAngle + segmentAngle / 2);
 
-    const spinBase = 1440; // fixed spins for consistency
-    const finalRotation = spinBase + stopAngle;
-
+    const finalRotation = 1440 + stopAngle;
     setRotation(finalRotation);
 
     setTimeout(() => {
@@ -90,19 +106,34 @@ export default function FreeSpinWheelAdvanced() {
         const mult = parseInt(landed.replace("x", ""));
         win = stake * mult;
         setTotal((t) => t + win);
+        spawnFlowers();
         playSound("win");
+        setWinState("win");
+
+      } else if (landed === "➖ -50%") {
+        const loss = stake / 2;
+        setTotal((t) => t - loss);
+        playSound("lose");
+        setWinState("partial");
+
       } else if (landed === "❌ Lose") {
         setTotal((t) => t - stake);
         playSound("lose");
+        setWinState("lose");
+
+      } else {
+        playSound("win");
+        setWinState("win");
       }
 
       setResult(`${landed} ${win ? `(+₦${win})` : ""}`);
       setSpinning(false);
+      setShowOverlay(true);
 
-      // 🔄 AUTO REFRESH AFTER RESULT
+      // auto hide overlay
       setTimeout(() => {
-        window.location.reload();
-      }, 2500);
+        setShowOverlay(false);
+      }, 3000);
 
     }, 3000);
   };
@@ -183,8 +214,49 @@ export default function FreeSpinWheelAdvanced() {
           cursor: pointer;
         }
 
-        .error {
-          color: red;
+        .overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0,0,0,0.7);
+          z-index: 999;
+          flex-direction: column;
+          animation: fadeIn 0.3s ease;
+        }
+
+        .win {
+          font-size: 50px;
+          color: gold;
+          animation: pop 0.5s ease;
+        }
+
+        .lose {
+          font-size: 50px;
+          color: #ff5252;
+        }
+
+        @keyframes pop {
+          0% { transform: scale(0.5); }
+          100% { transform: scale(1); }
+        }
+
+        .flower {
+          position: absolute;
+          top: -20px;
+          animation: fall 2.5s linear forwards;
+          font-size: 20px;
+        }
+
+        @keyframes fall {
+          to {
+            transform: translateY(120vh);
+            opacity: 0;
+          }
         }
       `}</style>
 
@@ -204,9 +276,9 @@ export default function FreeSpinWheelAdvanced() {
         </div>
 
         <p>💰 Stake: {stake || "None"}</p>
-        <p>🏆 Total Won: ₦{total}</p>
+        <p>🏆 Total: ₦{total}</p>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p style={{ color: "red" }}>{error}</p>}
 
         <div className="wheel-container">
           <div className="pointer">🔻</div>
@@ -221,7 +293,7 @@ export default function FreeSpinWheelAdvanced() {
                 className="segment"
                 style={{
                   transform: `rotate(${i * segmentAngle - 90}deg) skewY(${90 - segmentAngle}deg)`,
-                  background: `hsl(${i * 60},70%,50%)`
+                  background: `hsl(${i * 50},70%,50%)`
                 }}
               >
                 <div style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
@@ -237,6 +309,30 @@ export default function FreeSpinWheelAdvanced() {
         </button>
 
         <p>{result}</p>
+
+        {/* 🌸 flowers */}
+        {flowers.map((f) => (
+          <div key={f.id} className="flower" style={{ left: `${f.left}%` }}>
+            🌸
+          </div>
+        ))}
+
+        {/* 🎉 RESULT OVERLAY */}
+        {showOverlay && (
+          <div className="overlay">
+            {winState === "win" && (
+              <div className="win">🏆 YOU WIN 🎉</div>
+            )}
+
+            {winState === "lose" && (
+              <div className="lose">😢 You Lost</div>
+            )}
+
+            {winState === "partial" && (
+              <div className="lose">😬 Half Lost</div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
