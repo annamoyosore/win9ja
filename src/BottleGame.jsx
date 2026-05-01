@@ -48,11 +48,11 @@ export default function CasinoWheel() {
   };
 
   const spawnFlowers = () => {
-    const f = Array.from({ length: 20 }).map((_, i) => ({
+    const items = Array.from({ length: 25 }).map((_, i) => ({
       id: i,
       left: Math.random() * 100
     }));
-    setFlowers(f);
+    setFlowers(items);
     setTimeout(() => setFlowers([]), 2500);
   };
 
@@ -77,19 +77,21 @@ export default function CasinoWheel() {
     if (type === "win") [400, 700, 1000].forEach((f, i) =>
       setTimeout(() => tone(f, 200), i * 120)
     );
+
     if (type === "lose") [500, 300, 120].forEach((f, i) =>
       setTimeout(() => tone(f, 200), i * 150)
     );
   };
 
-  const startReset = () => {
-    let t = 5;
-    setCountdown(t);
-    const i = setInterval(() => {
-      t--;
-      setCountdown(t);
-      if (t <= 0) {
-        clearInterval(i);
+  const startResetCountdown = () => {
+    let time = 5;
+    setCountdown(time);
+
+    const interval = setInterval(() => {
+      time--;
+      setCountdown(time);
+      if (time <= 0) {
+        clearInterval(interval);
         setRotation(0);
         setResult("");
         setOverlay(null);
@@ -150,21 +152,21 @@ export default function CasinoWheel() {
         text = `➖ Lost ₦${loss}`;
 
       } else if (outcome === "X1") {
-        playSound("win");
         text = "⚖️ No Gain";
+        playSound("win");
 
       } else if (outcome === "FREE") {
         setFreeSpins((f) => f + 1);
-        playSound("win");
         text = "🎁 Free Spin!";
+        playSound("win");
 
       } else {
         const mult = parseInt(outcome.replace("X", ""));
         win = stake * mult;
-        setWon(win);
         setTotal((t) => t + win);
+        setWon(win);
         playSound("win");
-        spawnFlowers();
+        spawnFlowers(); // 🌸 trigger
         setOverlay("win");
         text = `🎉 Won ₦${win}`;
       }
@@ -172,7 +174,7 @@ export default function CasinoWheel() {
       setResult(text);
       setSpinning(false);
 
-      startReset();
+      startResetCountdown();
     }, 3000);
   };
 
@@ -181,25 +183,42 @@ export default function CasinoWheel() {
       <style>{`
         .container {
           height: 100vh;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          justify-content:center;
-          background: radial-gradient(circle,#1a1a2e,#000);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle, #1a1a2e, #000);
+          color: white;
+        }
+
+        .stake button {
+          margin:5px;
+          padding:8px 14px;
+          border:none;
+          border-radius:10px;
+          background:#333;
           color:white;
+          font-size:13px;
+        }
+
+        .active {
+          background: purple;
+          box-shadow:0 0 10px purple;
         }
 
         .wheel-container {
+          position:relative;
           width:200px;
           height:200px;
-          position:relative;
+          margin:15px;
         }
 
         .pointer {
           position:absolute;
-          top:-15px;
+          top:-14px;
           left:50%;
           transform:translateX(-50%);
+          font-size:22px;
         }
 
         .wheel {
@@ -208,7 +227,7 @@ export default function CasinoWheel() {
           border-radius:50%;
           border:4px solid gold;
           position:relative;
-          transition:transform 3s ease-out;
+          transition:transform 3s cubic-bezier(0.25,1,0.5,1);
         }
 
         .segment {
@@ -219,52 +238,68 @@ export default function CasinoWheel() {
           left:50%;
           transform-origin:0% 0%;
           display:flex;
-          justify-content:center;
           align-items:center;
+          justify-content:center;
           font-size:10px;
+          font-weight:bold;
+          text-align:center;
+          padding:2px;
+        }
+
+        .jackpot {
+          color:gold;
+          text-shadow:0 0 8px gold;
         }
 
         .confetti {
           position:fixed;
           top:-20px;
           animation:fall 2.5s linear forwards;
+          font-size:18px;
         }
 
         @keyframes fall {
-          to { transform:translateY(110vh); opacity:0; }
+          to {
+            transform:translateY(110vh);
+            opacity:0;
+          }
         }
       `}</style>
 
       <div className="container">
         <h3>🎡 Casino Wheel</h3>
 
-        <div>
-          {stakes.map(s => (
+        <div className="stake">
+          {stakes.map((s) => (
             <button
               key={s}
+              className={stake === s ? "active" : ""}
               onClick={() => setStake(s)}
-              style={{
-                background: stake===s ? "purple":"#333",
-                color:"white",
-                margin:5
-              }}
-            >₦{s}</button>
+            >
+              ₦{s}
+            </button>
           ))}
         </div>
+
+        <p>🎟 Free Spins: {freeSpins}</p>
 
         <div className="wheel-container">
           <div className="pointer">🔻</div>
 
-          <div className="wheel" style={{transform:`rotate(${rotation}deg)`}}>
-            {segments.map((seg,i)=>(
+          <div
+            className="wheel"
+            style={{ transform: `rotate(${rotation}deg)` }}
+          >
+            {segments.map((seg, i) => (
               <div
                 key={i}
-                className="segment"
+                className={`segment ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
                 style={{
-                  transform:`rotate(${i*segmentAngle}deg) skewY(${90-segmentAngle}deg)`
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
+                  background: `hsl(${i * 45},70%,50%)`
                 }}
               >
-                <span style={{transform:`skewY(-${90-segmentAngle}deg)`}}>
+                <span style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
                   {seg}
                 </span>
               </div>
@@ -273,11 +308,13 @@ export default function CasinoWheel() {
         </div>
 
         <button onClick={spin}>
-          {spinning ? "Spinning..." : "Spin"}
+          {spinning ? "Spinning..." : "🎡 Spin"}
         </button>
 
-        <p>💰 Total: ₦{total}</p>
-        <p>🏆 Won: ₦{won}</p>
+        <div>
+          💰 Total: ₦{total} | 🏆 Won: ₦{won}
+        </div>
+
         <p>{result}</p>
 
         {countdown && <p>Resetting in {countdown}s...</p>}
@@ -286,16 +323,16 @@ export default function CasinoWheel() {
           <div style={{
             position:"fixed",
             top:0,left:0,width:"100%",height:"100%",
-            display:"flex",justifyContent:"center",alignItems:"center",
-            background:"rgba(0,0,0,0.6)",
-            fontSize:"30px"
+            display:"flex",alignItems:"center",justifyContent:"center",
+            background:"rgba(0,0,0,0.7)",
+            fontSize:"32px"
           }}>
-            {overlay==="win"?"🏆 WIN":"😢 LOSE"}
+            {overlay === "win" ? "🏆 WIN!" : "😢 LOST"}
           </div>
         )}
 
-        {flowers.map(f=>(
-          <div key={f.id} className="confetti" style={{left:`${f.left}%`}}>
+        {flowers.map(f => (
+          <div key={f.id} className="confetti" style={{ left:`${f.left}%` }}>
             🌸
           </div>
         ))}
