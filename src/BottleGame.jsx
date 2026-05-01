@@ -7,7 +7,7 @@ export default function WheelBattleTest() {
   const [botChoice, setBotChoice] = useState(null);
 
   const [status, setStatus] = useState("choosing"); 
-  // choosing | waiting | spinning | finished
+  // choosing | waiting | ready | spinning | finished
 
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
@@ -47,22 +47,21 @@ export default function WheelBattleTest() {
 
     setPlayerChoice(seg);
     setResult("");
-
     setStatus("waiting");
 
-    // 🤖 simulate opponent delay
+    // 🤖 simulate opponent thinking
     setTimeout(() => {
       const botPick =
         segments[Math.floor(Math.random() * segments.length)];
       setBotChoice(botPick);
-
-      // auto start spin after both ready
-      setTimeout(() => spin(seg, botPick), 1000);
+      setStatus("ready"); // 👈 now wait for player to press spin
     }, 1200);
   };
 
-  // 🎡 SPIN (single shared result)
-  const spin = (player, bot) => {
+  // 🎡 SPIN
+  const spin = () => {
+    if (status !== "ready") return;
+
     setSpinning(true);
     setStatus("spinning");
 
@@ -84,11 +83,10 @@ export default function WheelBattleTest() {
     setTimeout(() => {
       clearInterval(tick);
 
-      // 🎯 RESULT
-      if (landed === player) {
+      if (landed === playerChoice) {
         setResult("🎉 You Win!");
         playSound("win");
-      } else if (landed === bot) {
+      } else if (landed === botChoice) {
         setResult("🤖 Bot Wins!");
         playSound("lose");
       } else {
@@ -207,6 +205,7 @@ export default function WheelBattleTest() {
         <div className="status">
           {status === "choosing" && "Pick your segment"}
           {status === "waiting" && "⏳ Waiting for opponent..."}
+          {status === "ready" && "✅ Ready! Press Spin"}
           {status === "spinning" && "🎡 Spinning..."}
           {status === "finished" && "Result ready"}
         </div>
@@ -244,9 +243,7 @@ export default function WheelBattleTest() {
                 key={i}
                 className="segment"
                 style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${
-                    90 - segmentAngle
-                  }deg)`,
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
                   background: `hsl(${i * 70}, 70%, 50%)`
                 }}
               >
@@ -257,6 +254,13 @@ export default function WheelBattleTest() {
             ))}
           </div>
         </div>
+
+        {/* ✅ SPIN BUTTON */}
+        {status === "ready" && (
+          <button onClick={spin} disabled={spinning}>
+            🎡 Spin
+          </button>
+        )}
 
         {status === "finished" && (
           <button onClick={reset}>🔄 Play Again</button>
