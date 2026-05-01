@@ -1,14 +1,17 @@
 import { useState, useRef } from "react";
 
-export default function WheelBattle() {
+export default function WheelBattleTest() {
   const segments = ["💰 Win", "❌ Lose", "🎁 Bonus", "⭐ Lucky", "🔥 Jackpot"];
 
-  const [selected, setSelected] = useState(null);
+  const [playerChoice, setPlayerChoice] = useState(null);
   const [botChoice, setBotChoice] = useState(null);
 
+  const [status, setStatus] = useState("choosing"); 
+  // choosing | waiting | spinning | finished
+
   const [rotation, setRotation] = useState(0);
-  const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState("");
+  const [spinning, setSpinning] = useState(false);
 
   const audioCtxRef = useRef(null);
 
@@ -38,28 +41,30 @@ export default function WheelBattle() {
     setTimeout(() => osc.stop(), 120);
   };
 
+  // 🎯 PLAYER PICKS
   const choose = (seg) => {
-    if (spinning) return;
+    if (status !== "choosing") return;
 
-    setSelected(seg);
+    setPlayerChoice(seg);
     setResult("");
 
-    // 🤖 bot picks different or random
-    const randomBot =
-      segments[Math.floor(Math.random() * segments.length)];
-    setBotChoice(randomBot);
+    setStatus("waiting");
+
+    // 🤖 simulate opponent delay
+    setTimeout(() => {
+      const botPick =
+        segments[Math.floor(Math.random() * segments.length)];
+      setBotChoice(botPick);
+
+      // auto start spin after both ready
+      setTimeout(() => spin(seg, botPick), 1000);
+    }, 1200);
   };
 
-  const spin = () => {
-    if (spinning) return;
-
-    if (!selected) {
-      setResult("⚠️ Select a segment first");
-      return;
-    }
-
+  // 🎡 SPIN (single shared result)
+  const spin = (player, bot) => {
     setSpinning(true);
-    setResult("");
+    setStatus("spinning");
 
     playSound("spin");
 
@@ -79,18 +84,27 @@ export default function WheelBattle() {
     setTimeout(() => {
       clearInterval(tick);
 
-      if (landed === selected) {
+      // 🎯 RESULT
+      if (landed === player) {
         setResult("🎉 You Win!");
         playSound("win");
-      } else if (landed === botChoice) {
+      } else if (landed === bot) {
         setResult("🤖 Bot Wins!");
         playSound("lose");
       } else {
         setResult(`⚖️ Landed on ${landed}`);
       }
 
+      setStatus("finished");
       setSpinning(false);
     }, 3000);
+  };
+
+  const reset = () => {
+    setPlayerChoice(null);
+    setBotChoice(null);
+    setStatus("choosing");
+    setResult("");
   };
 
   return (
@@ -107,6 +121,12 @@ export default function WheelBattle() {
           background: radial-gradient(circle, #1f1c2c, #928dab);
         }
 
+        .status {
+          margin-bottom: 10px;
+          font-size: 14px;
+          opacity: 0.8;
+        }
+
         .choices {
           display: flex;
           gap: 10px;
@@ -119,6 +139,11 @@ export default function WheelBattle() {
           border-radius: 20px;
           background: rgba(255,255,255,0.1);
           cursor: pointer;
+        }
+
+        .disabled {
+          opacity: 0.4;
+          pointer-events: none;
         }
 
         .active {
@@ -177,14 +202,21 @@ export default function WheelBattle() {
       `}</style>
 
       <div className="container">
-        <h2>🎡 Wheel Battle (vs Bot)</h2>
+        <h2>🎡 Wheel Battle (Test Mode)</h2>
+
+        <div className="status">
+          {status === "choosing" && "Pick your segment"}
+          {status === "waiting" && "⏳ Waiting for opponent..."}
+          {status === "spinning" && "🎡 Spinning..."}
+          {status === "finished" && "Result ready"}
+        </div>
 
         {/* choices */}
-        <div className="choices">
+        <div className={`choices ${status !== "choosing" ? "disabled" : ""}`}>
           {segments.map((seg, i) => (
             <div
               key={i}
-              className={`choice ${selected === seg ? "active" : ""}`}
+              className={`choice ${playerChoice === seg ? "active" : ""}`}
               onClick={() => choose(seg)}
             >
               {seg}
@@ -193,9 +225,9 @@ export default function WheelBattle() {
         </div>
 
         {/* info */}
-        {selected && (
+        {playerChoice && (
           <p>
-            🧑 You: {selected} | 🤖 Bot: {botChoice || "..."}
+            🧑 You: {playerChoice} | 🤖 Bot: {botChoice || "..."}
           </p>
         )}
 
@@ -226,9 +258,9 @@ export default function WheelBattle() {
           </div>
         </div>
 
-        <button onClick={spin} disabled={spinning}>
-          {spinning ? "Spinning..." : "Spin"}
-        </button>
+        {status === "finished" && (
+          <button onClick={reset}>🔄 Play Again</button>
+        )}
 
         <div className="result">{result}</div>
       </div>
