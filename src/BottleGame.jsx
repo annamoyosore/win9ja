@@ -17,9 +17,7 @@ export default function FreeSpinWheelAdvanced() {
   const [result, setResult] = useState("");
   const [total, setTotal] = useState(0);
   const [spinning, setSpinning] = useState(false);
-  const [freeSpins, setFreeSpins] = useState(1);
   const [error, setError] = useState("");
-  const [flowers, setFlowers] = useState([]);
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
@@ -44,9 +42,12 @@ export default function FreeSpinWheelAdvanced() {
       setTimeout(() => o.stop(), d);
     };
 
-    if (type === "tick") tone(800 + Math.random() * 200, 40);
-    if (type === "win") [400, 600, 900].forEach((f, i) => setTimeout(() => tone(f, 120), i * 120));
-    if (type === "lose") [500, 300, 150].forEach((f, i) => setTimeout(() => tone(f, 150), i * 150));
+    if (type === "win") [400, 600, 900].forEach((f, i) =>
+      setTimeout(() => tone(f, 120), i * 120)
+    );
+    if (type === "lose") [500, 300, 150].forEach((f, i) =>
+      setTimeout(() => tone(f, 150), i * 150)
+    );
   };
 
   const getIndex = () => {
@@ -58,15 +59,6 @@ export default function FreeSpinWheelAdvanced() {
     return 0;
   };
 
-  const spawnFlowers = () => {
-    const newFlowers = Array.from({ length: 20 }).map((_, i) => ({
-      id: i,
-      left: Math.random() * 100
-    }));
-    setFlowers(newFlowers);
-    setTimeout(() => setFlowers([]), 2000);
-  };
-
   const spin = () => {
     if (spinning) return;
 
@@ -76,32 +68,20 @@ export default function FreeSpinWheelAdvanced() {
       return;
     }
 
-    if (freeSpins <= 0) return;
-
     setSpinning(true);
-    setFreeSpins((f) => f - 1);
     setResult("");
 
     const index = getIndex();
     const landed = segments[index].label;
 
-    // ✅ FIXED POINTER ALIGNMENT
+    // ✅ CORRECT CENTER ALIGNMENT
     const stopAngle =
-      360 - (index * segmentAngle + segmentAngle / 2) + 270;
+      360 - (index * segmentAngle + segmentAngle / 2);
 
-    const spinBase = Math.floor(Math.random() * 720) + 1440;
-    const finalRotation = rotation + spinBase + stopAngle;
+    const spinBase = 1440; // fixed spins for consistency
+    const finalRotation = spinBase + stopAngle;
 
     setRotation(finalRotation);
-
-    let tickSpeed = 50;
-    const tickLoop = () => {
-      if (!spinning) return;
-      playSound("tick");
-      tickSpeed += 12;
-      if (tickSpeed < 220) setTimeout(tickLoop, tickSpeed);
-    };
-    tickLoop();
 
     setTimeout(() => {
       let win = 0;
@@ -110,18 +90,20 @@ export default function FreeSpinWheelAdvanced() {
         const mult = parseInt(landed.replace("x", ""));
         win = stake * mult;
         setTotal((t) => t + win);
-        spawnFlowers();
         playSound("win");
       } else if (landed === "❌ Lose") {
         setTotal((t) => t - stake);
         playSound("lose");
-      } else {
-        setFreeSpins((f) => f + 1);
-        playSound("win");
       }
 
       setResult(`${landed} ${win ? `(+₦${win})` : ""}`);
       setSpinning(false);
+
+      // 🔄 AUTO REFRESH AFTER RESULT
+      setTimeout(() => {
+        window.location.reload();
+      }, 2500);
+
     }, 3000);
   };
 
@@ -134,8 +116,8 @@ export default function FreeSpinWheelAdvanced() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          color: white;
           background: radial-gradient(circle, #1f1c2c, #928dab);
+          color: white;
         }
 
         .stake {
@@ -145,11 +127,10 @@ export default function FreeSpinWheelAdvanced() {
 
         .stake button {
           padding: 8px 14px;
-          background: #444;
-          border: none;
           border-radius: 10px;
+          border: none;
+          background: #444;
           color: white;
-          cursor: pointer;
         }
 
         .active {
@@ -178,7 +159,7 @@ export default function FreeSpinWheelAdvanced() {
           border-radius: 50%;
           border: 5px solid white;
           overflow: hidden;
-          transition: transform 3s cubic-bezier(0.25,1,0.5,1);
+          transition: transform 3s ease-out;
         }
 
         .segment {
@@ -196,7 +177,7 @@ export default function FreeSpinWheelAdvanced() {
 
         .spin {
           padding: 10px 20px;
-          background: #ff9800;
+          background: orange;
           border: none;
           border-radius: 20px;
           cursor: pointer;
@@ -205,26 +186,11 @@ export default function FreeSpinWheelAdvanced() {
         .error {
           color: red;
         }
-
-        .flower {
-          position: absolute;
-          top: -20px;
-          animation: fall 2s linear forwards;
-          font-size: 20px;
-        }
-
-        @keyframes fall {
-          to {
-            transform: translateY(120vh);
-            opacity: 0;
-          }
-        }
       `}</style>
 
       <div className="container">
         <h2>🎡 Spin Game</h2>
 
-        {/* Stake */}
         <div className="stake">
           {stakes.map((s) => (
             <button
@@ -239,11 +205,9 @@ export default function FreeSpinWheelAdvanced() {
 
         <p>💰 Stake: {stake || "None"}</p>
         <p>🏆 Total Won: ₦{total}</p>
-        <p>🎟 Spins: {freeSpins}</p>
 
         {error && <p className="error">{error}</p>}
 
-        {/* Wheel */}
         <div className="wheel-container">
           <div className="pointer">🔻</div>
 
@@ -273,17 +237,6 @@ export default function FreeSpinWheelAdvanced() {
         </button>
 
         <p>{result}</p>
-
-        {/* 🌸 Flower Rain */}
-        {flowers.map((f) => (
-          <div
-            key={f.id}
-            className="flower"
-            style={{ left: `${f.left}%` }}
-          >
-            🌸
-          </div>
-        ))}
       </div>
     </>
   );
