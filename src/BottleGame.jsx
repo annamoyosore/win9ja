@@ -25,45 +25,25 @@ export default function BottleGame() {
     gain.connect(ctx.destination);
 
     if (type === "spin") {
-      osc.frequency.value = 300;
+      osc.frequency.value = 350;
       gain.gain.value = 0.05;
     }
 
     if (type === "land") {
-      osc.frequency.value = 120;
-      gain.gain.value = 0.1;
+      osc.frequency.value = 150;
+      gain.gain.value = 0.12;
     }
 
     osc.start();
-    setTimeout(() => osc.stop(), type === "spin" ? 300 : 150);
+    setTimeout(() => osc.stop(), type === "spin" ? 300 : 200);
   };
 
-  // 🎯 3-LOGIC ENGINE (weighted)
-  const getServerResult = (playerChoice) => {
+  // 🎯 2-WAY RESULT (50/50)
+  const getResult = (playerChoice) => {
+    const outcome = Math.random() < 0.5 ? "HEAD" : "BOTTOM";
     const botChoice = playerChoice === "HEAD" ? "BOTTOM" : "HEAD";
 
-    const outcomes = [
-      { type: "HEAD", weight: 0.4 },
-      { type: "BOTTOM", weight: 0.4 },
-      { type: "MISS", weight: 0.2 }
-    ];
-
-    let rand = Math.random();
-    let cumulative = 0;
-    let outcome = "MISS";
-
-    for (let o of outcomes) {
-      cumulative += o.weight;
-      if (rand <= cumulative) {
-        outcome = o.type;
-        break;
-      }
-    }
-
-    let winner;
-    if (outcome === playerChoice) winner = "USER";
-    else if (outcome === "MISS") winner = "ADMIN";
-    else winner = "BOT";
+    let winner = outcome === playerChoice ? "USER" : "BOT";
 
     return { outcome, winner, botChoice };
   };
@@ -75,7 +55,12 @@ export default function BottleGame() {
   };
 
   const spin = () => {
-    if (!playerChoice || spinning) return;
+    if (spinning) return;
+
+    if (!playerChoice) {
+      setResult("⚠️ Choose Head or Bottom first");
+      return;
+    }
 
     setSpinning(true);
     setPhase("spinning");
@@ -83,48 +68,29 @@ export default function BottleGame() {
 
     playSound("spin");
 
-    // 🔐 LOCK RESULT FIRST
-    const { outcome, winner, botChoice } = getServerResult(playerChoice);
+    // 🔐 lock result
+    const { outcome, winner, botChoice } = getResult(playerChoice);
     setBotChoice(botChoice);
 
-    // 🎯 TRUE ANGLE ZONES
-    let targetAngle;
-
-    switch (outcome) {
-      case "HEAD":
-        targetAngle = Math.random() * 120 + 10;   // 0°–130°
-        break;
-      case "BOTTOM":
-        targetAngle = Math.random() * 120 + 140;  // 140°–260°
-        break;
-      case "MISS":
-        targetAngle = Math.random() * 80 + 280;   // 280°–360°
-        break;
-      default:
-        targetAngle = 0;
-    }
+    // 🎯 2 zones only
+    let targetAngle =
+      outcome === "HEAD"
+        ? Math.random() * 150 + 10   // HEAD zone
+        : Math.random() * 150 + 180; // BOTTOM zone
 
     const spinBase = Math.floor(Math.random() * 720) + 1080;
     const finalRotation = spinBase + targetAngle;
 
     setRotation(finalRotation);
 
-    // ⏳ suspense
-    setTimeout(() => {
-      setPhase("slowing");
-    }, 1400);
+    setTimeout(() => setPhase("slowing"), 1400);
 
-    // 🎉 result
     setTimeout(() => {
       playSound("land");
 
-      if (winner === "USER") {
-        setResult("🎉 You Win!");
-      } else if (winner === "ADMIN") {
-        setResult("🏦 Admin takes the pot!");
-      } else {
-        setResult("🤖 Bot Wins!");
-      }
+      setResult(
+        winner === "USER" ? "🎉 You Win!" : "🤖 Bot Wins!"
+      );
 
       setPhase("result");
       setSpinning(false);
@@ -142,7 +108,7 @@ export default function BottleGame() {
           justify-content: center;
           font-family: Arial;
           color: white;
-          background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364);
+          background: linear-gradient(-45deg, #141e30, #243b55);
           background-size: 400% 400%;
           animation: bg 10s ease infinite;
         }
@@ -154,17 +120,31 @@ export default function BottleGame() {
         }
 
         .controls button {
-          margin: 5px;
-          padding: 10px 18px;
+          margin: 8px;
+          padding: 12px 22px;
           border: none;
-          border-radius: 20px;
+          border-radius: 25px;
           cursor: pointer;
           font-weight: bold;
+          transition: 0.2s;
+          opacity: 0.7;
+        }
+
+        .controls button.active {
+          opacity: 1;
+          transform: scale(1.1);
+          box-shadow: 0 0 10px rgba(255,255,255,0.5);
         }
 
         .head { background: #4caf50; }
         .bottom { background: #2196f3; }
-        .spin { background: #ff5722; margin-top: 10px; }
+
+        .spin {
+          background: #ff5722;
+          margin-top: 10px;
+          padding: 12px 28px;
+          border-radius: 30px;
+        }
 
         .bottle-area {
           position: relative;
@@ -176,13 +156,13 @@ export default function BottleGame() {
           top: -25px;
           left: 50%;
           transform: translateX(-50%);
-          font-size: 30px;
+          font-size: 32px;
         }
 
         .labels {
           position: absolute;
           top: -55px;
-          width: 280px;
+          width: 260px;
           display: flex;
           justify-content: space-between;
           font-size: 12px;
@@ -200,7 +180,7 @@ export default function BottleGame() {
 
         @keyframes bounce {
           0% { transform: scale(1) rotate(var(--rot)); }
-          50% { transform: scale(1.25) rotate(var(--rot)); }
+          50% { transform: scale(1.3) rotate(var(--rot)); }
           100% { transform: scale(1) rotate(var(--rot)); }
         }
 
@@ -211,8 +191,8 @@ export default function BottleGame() {
 
         .result {
           margin-top: 20px;
-          font-size: 22px;
-          animation: fadeIn 0.5s ease;
+          font-size: 24px;
+          animation: fadeIn 0.4s ease;
         }
 
         @keyframes fadeIn {
@@ -222,14 +202,21 @@ export default function BottleGame() {
       `}</style>
 
       <div className="container">
-        <h2>Bottle Flip (3 Logic)</h2>
+        <h2>Bottle Flip (Head vs Bottom)</h2>
 
         {/* Choice */}
         <div className="controls">
-          <button className="head" onClick={() => choose("HEAD")}>
+          <button
+            className={`head ${playerChoice === "HEAD" ? "active" : ""}`}
+            onClick={() => choose("HEAD")}
+          >
             Head
           </button>
-          <button className="bottom" onClick={() => choose("BOTTOM")}>
+
+          <button
+            className={`bottom ${playerChoice === "BOTTOM" ? "active" : ""}`}
+            onClick={() => choose("BOTTOM")}
+          >
             Bottom
           </button>
         </div>
@@ -241,7 +228,6 @@ export default function BottleGame() {
           <div className="labels">
             <span>HEAD</span>
             <span>BOTTOM</span>
-            <span>MISS</span>
           </div>
 
           <div
@@ -256,7 +242,7 @@ export default function BottleGame() {
         </div>
 
         {/* Spin */}
-        <button className="spin" onClick={spin}>
+        <button className="spin" onClick={spin} disabled={spinning}>
           {spinning ? "Spinning..." : "Flip Bottle"}
         </button>
 
