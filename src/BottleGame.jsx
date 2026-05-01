@@ -126,10 +126,8 @@ export default function CasinoWheel() {
 
     const index = map[outcome];
 
-    const stopAngle =
-      360 - (index * segmentAngle + segmentAngle / 2);
-
-    const finalRotation = 1440 + stopAngle;
+    const stopAngle = 360 - (index * segmentAngle + segmentAngle / 2);
+    const finalRotation = rotation + 1440 + stopAngle;
 
     setRotation(finalRotation);
 
@@ -196,7 +194,6 @@ export default function CasinoWheel() {
           border-radius:10px;
           background:#333;
           color:white;
-          font-size:13px;
         }
 
         .active {
@@ -223,8 +220,9 @@ export default function CasinoWheel() {
           width:100%;
           height:100%;
           border-radius:50%;
-          border:4px solid gold;
+          border:5px solid gold;
           position:relative;
+          overflow:hidden;
           transition:transform 3s cubic-bezier(0.25,1,0.5,1);
         }
 
@@ -237,28 +235,29 @@ export default function CasinoWheel() {
           transform-origin:0% 0%;
           display:flex;
           align-items:center;
-          justify-content:center;
+          justify-content:flex-end;
+          padding-right:10px;
+          clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
         }
 
         .label {
-          transform: rotate(90deg);
           font-size:13px;
-          font-weight:900;
-          text-align:center;
-          line-height:1.2;
+          font-weight:bold;
+          color:white;
+          text-shadow:0 0 5px black;
         }
 
         .jackpot {
           color:gold;
-          text-shadow:0 0 10px gold;
-          font-size:14px;
+          font-weight:900;
+          text-shadow:0 0 10px gold,0 0 20px gold;
         }
 
         .confetti {
           position:fixed;
           top:-20px;
-          animation:fall 2.5s linear forwards;
           font-size:18px;
+          animation:fall 2.5s linear forwards;
         }
 
         @keyframes fall {
@@ -298,15 +297,13 @@ export default function CasinoWheel() {
                 key={i}
                 className="segment"
                 style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`
+                  transform: `rotate(${i * segmentAngle}deg)`,
+                  background: `hsl(${i * 45},80%,50%)`
                 }}
               >
-                <div
-                  className={`label ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
-                  style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}
-                >
+                <span className={`label ${seg.includes("JACKPOT") ? "jackpot" : ""}`}>
                   {seg}
-                </div>
+                </span>
               </div>
             ))}
           </div>
