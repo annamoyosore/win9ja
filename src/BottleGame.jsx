@@ -12,14 +12,14 @@ export default function FreeSpinWheelAdvanced() {
 
   const stakes = [50, 100, 200, 500];
 
-  const [stake, setStake] = useState(100);
-  const [lossPercent, setLossPercent] = useState(100);
+  const [stake, setStake] = useState(null);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
   const [total, setTotal] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [freeSpins, setFreeSpins] = useState(1);
   const [flowers, setFlowers] = useState(false);
+  const [error, setError] = useState("");
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
@@ -33,7 +33,7 @@ export default function FreeSpinWheelAdvanced() {
 
     const ctx = audioCtxRef.current;
 
-    const tone = (f, d, v = 0.1) => {
+    const tone = (f, d, v = 0.08) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.connect(g);
@@ -44,11 +44,12 @@ export default function FreeSpinWheelAdvanced() {
       setTimeout(() => o.stop(), d);
     };
 
-    if (type === "tick") tone(800 + Math.random() * 200, 40, 0.05);
-    if (type === "win") [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => tone(f, 120), i * 120));
+    if (type === "tick") tone(800 + Math.random() * 200, 40);
+    if (type === "win") [400, 600, 900].forEach((f, i) => setTimeout(() => tone(f, 120), i * 120));
     if (type === "lose") [500, 300, 150].forEach((f, i) => setTimeout(() => tone(f, 150), i * 150));
   };
 
+  // 🎯 weighted pick
   const getIndex = () => {
     let r = Math.random(), sum = 0;
     for (let i = 0; i < segments.length; i++) {
@@ -59,8 +60,18 @@ export default function FreeSpinWheelAdvanced() {
   };
 
   const spin = () => {
-    if (spinning || freeSpins <= 0) return;
+    if (spinning) return;
 
+    // 🚫 block if no stake
+    if (!stake) {
+      setError("⚠️ Select a stake before spinning");
+      setTimeout(() => setError(""), 1500);
+      return;
+    }
+
+    if (freeSpins <= 0) return;
+
+    setError("");
     setSpinning(true);
     setFreeSpins((f) => f - 1);
     setResult("");
@@ -73,6 +84,7 @@ export default function FreeSpinWheelAdvanced() {
 
     setRotation((r) => r + spinBase + stopAngle);
 
+    // 🎡 tick loop
     let tickSpeed = 50;
     const tickLoop = () => {
       if (!spinning) return;
@@ -92,8 +104,7 @@ export default function FreeSpinWheelAdvanced() {
         setFlowers(true);
         playSound("win");
       } else if (landed === "❌ Lose") {
-        const loss = stake * (lossPercent / 100);
-        setTotal((t) => t - loss);
+        setTotal((t) => t - stake);
         playSound("lose");
       } else {
         setFreeSpins((f) => f + 1);
@@ -120,25 +131,52 @@ export default function FreeSpinWheelAdvanced() {
           background: radial-gradient(circle, #1f1c2c, #928dab);
         }
 
+        .stake {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+
+        .stake button {
+          padding: 10px 15px;
+          border-radius: 12px;
+          border: none;
+          cursor: pointer;
+          background: #444;
+          color: white;
+          transition: 0.2s;
+        }
+
+        .stake button.active {
+          background: #ff9800;
+          transform: scale(1.1);
+          box-shadow: 0 0 10px #ff9800;
+        }
+
+        .stake button:disabled {
+          opacity: 0.4;
+        }
+
         .wheel-container {
           position: relative;
-          width: 260px;
-          height: 260px;
+          width: 240px;
+          height: 240px;
+          margin: 20px;
         }
 
         .pointer {
           position: absolute;
-          top: -20px;
+          top: -18px;
           left: 50%;
           transform: translateX(-50%);
-          font-size: 28px;
+          font-size: 26px;
         }
 
         .wheel {
           width: 100%;
           height: 100%;
           border-radius: 50%;
-          border: 6px solid white;
+          border: 5px solid white;
           overflow: hidden;
           transition: transform 3s cubic-bezier(0.25,1,0.5,1);
         }
@@ -153,17 +191,35 @@ export default function FreeSpinWheelAdvanced() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
+          font-size: 11px;
         }
 
-        .stake span {
-          margin: 5px;
-          padding: 8px;
-          background: #444;
+        button.spin {
+          padding: 12px 25px;
+          border-radius: 25px;
+          border: none;
           cursor: pointer;
+          background: #ff9800;
+          color: white;
+          margin-top: 10px;
         }
 
-        .active { background: orange; }
+        button.spin.disabled {
+          background: #555;
+        }
+
+        .error {
+          color: #ff5252;
+          animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+          0% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          50% { transform: translateX(5px); }
+          75% { transform: translateX(-5px); }
+          100% { transform: translateX(0); }
+        }
 
         .flowers {
           position: absolute;
@@ -171,8 +227,8 @@ export default function FreeSpinWheelAdvanced() {
         }
 
         @keyframes float {
-          from { transform: translateY(0); opacity:1; }
-          to { transform: translateY(-120px); opacity:0; }
+          from { transform: translateY(0); opacity: 1; }
+          to { transform: translateY(-120px); opacity: 0; }
         }
       `}</style>
 
@@ -182,18 +238,23 @@ export default function FreeSpinWheelAdvanced() {
         {/* stake */}
         <div className="stake">
           {stakes.map((s) => (
-            <span
+            <button
               key={s}
               className={stake === s ? "active" : ""}
+              disabled={spinning}
               onClick={() => setStake(s)}
             >
               ₦{s}
-            </span>
+            </button>
           ))}
         </div>
 
-        <p>Total: ₦{total}</p>
-        <p>Spins: {freeSpins}</p>
+        <p>💰 Selected: {stake ? `₦${stake}` : "None"}</p>
+        <p>🎟 Spins: {freeSpins}</p>
+        <p>📊 Total: ₦{total}</p>
+
+        {/* error */}
+        {error && <p className="error">{error}</p>}
 
         {/* wheel */}
         <div className="wheel-container">
@@ -220,12 +281,17 @@ export default function FreeSpinWheelAdvanced() {
           </div>
         </div>
 
-        <button onClick={spin} disabled={spinning}>
-          Spin
+        {/* spin */}
+        <button
+          className={`spin ${!stake ? "disabled" : ""}`}
+          onClick={spin}
+        >
+          {!stake ? "⚠️ Select Stake" : spinning ? "Spinning..." : "🎡 Spin"}
         </button>
 
         <p>{result}</p>
 
+        {/* flowers */}
         {flowers && (
           <>
             <div className="flowers">🌸</div>
