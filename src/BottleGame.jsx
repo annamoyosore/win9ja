@@ -13,9 +13,8 @@ export default function CasinoWheel() {
   ];
 
   const segmentAngle = 360 / segments.length;
-  const stakes = [50, 100, 200, 500];
 
-  const [stake, setStake] = useState(null);
+  const [stake, setStake] = useState("");
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
   const [total, setTotal] = useState(0);
@@ -102,10 +101,12 @@ export default function CasinoWheel() {
   const spin = () => {
     if (spinning) return;
 
-    if (!stake && freeSpins <= 0) {
-      setResult("⚠️ Select stake first");
+    if ((!stake || Number(stake) <= 0) && freeSpins <= 0) {
+      setResult("⚠️ Enter valid stake");
       return;
     }
+
+    const numericStake = Number(stake);
 
     setSpinning(true);
     setResult("");
@@ -136,13 +137,13 @@ export default function CasinoWheel() {
       let win = 0;
 
       if (outcome === "LOSE") {
-        setTotal((t) => t - stake);
+        setTotal((t) => t - numericStake);
         playSound("lose");
         setOverlay("lose");
-        text = `❌ Lost ₦${stake}`;
+        text = `❌ Lost ₦${numericStake}`;
 
       } else if (outcome === "HALF") {
-        const loss = stake / 2;
+        const loss = numericStake / 2;
         setTotal((t) => t - loss);
         playSound("lose");
         setOverlay("lose");
@@ -159,7 +160,7 @@ export default function CasinoWheel() {
 
       } else {
         const mult = parseInt(outcome.replace("X", ""));
-        win = stake * mult;
+        win = numericStake * mult;
         setTotal((t) => t + win);
         setWon(win);
         playSound("win");
@@ -178,7 +179,7 @@ export default function CasinoWheel() {
     <>
       <style>{`
         .container {
-          height: 100vh;
+          height:100vh;
           display:flex;
           flex-direction:column;
           align-items:center;
@@ -187,18 +188,22 @@ export default function CasinoWheel() {
           color:white;
         }
 
-        .stake button {
-          margin:5px;
-          padding:8px 14px;
-          border:none;
+        .stake-input input {
+          padding:10px;
           border-radius:10px;
-          background:#333;
-          color:white;
+          border:none;
+          outline:none;
+          text-align:center;
+          font-size:16px;
+          width:160px;
         }
 
-        .active {
-          background: purple;
-          box-shadow:0 0 10px purple;
+        .stake-display {
+          margin-top:8px;
+          font-size:16px;
+          font-weight:bold;
+          color:#ff3b3b;
+          text-shadow:0 0 8px red;
         }
 
         .wheel-container {
@@ -271,17 +276,19 @@ export default function CasinoWheel() {
       <div className="container">
         <h3>🎡 Casino Wheel</h3>
 
-        <div className="stake">
-          {stakes.map((s) => (
-            <button
-              key={s}
-              className={stake === s ? "active" : ""}
-              onClick={() => setStake(s)}
-            >
-              ₦{s}
-            </button>
-          ))}
+        {/* Manual Stake */}
+        <div className="stake-input">
+          <input
+            type="number"
+            placeholder="Enter stake..."
+            value={stake}
+            onChange={(e) => setStake(e.target.value)}
+          />
         </div>
+
+        <p className="stake-display">
+          💸 Stake: {stake ? `₦${stake}` : "None"}
+        </p>
 
         <p>🎟 Free Spins: {freeSpins}</p>
 
