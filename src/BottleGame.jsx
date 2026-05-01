@@ -1,17 +1,19 @@
 import { useState, useRef } from "react";
 
-export default function WheelBattleTest() {
-  const segments = ["💰 Win", "❌ Lose", "🎁 Bonus", "⭐ Lucky", "🔥 Jackpot"];
-
-  const [playerChoice, setPlayerChoice] = useState(null);
-  const [botChoice, setBotChoice] = useState(null);
-
-  const [status, setStatus] = useState("choosing"); 
-  // choosing | waiting | ready | spinning | finished
+export default function FreeSpinWheel() {
+  const segments = [
+    { label: "❌ Lose", weight: 0.35 },
+    { label: "🔁 Try Again", weight: 0.2 },
+    { label: "✖️ x2", weight: 0.2 },
+    { label: "✖️ x3", weight: 0.15 },
+    { label: "✖️ x10", weight: 0.05 },
+    { label: "🎁 Free Spin", weight: 0.05 }
+  ];
 
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
   const [spinning, setSpinning] = useState(false);
+  const [freeSpins, setFreeSpins] = useState(1);
 
   const audioCtxRef = useRef(null);
 
@@ -34,44 +36,38 @@ export default function WheelBattleTest() {
     if (type === "spin") osc.frequency.value = 300;
     if (type === "tick") osc.frequency.value = 800;
     if (type === "win") osc.frequency.value = 600;
-    if (type === "lose") osc.frequency.value = 150;
 
     gain.gain.value = 0.08;
     osc.start();
     setTimeout(() => osc.stop(), 120);
   };
 
-  // 🎯 PLAYER PICKS
-  const choose = (seg) => {
-    if (status !== "choosing") return;
+  // 🎯 Weighted random
+  const getWeightedIndex = () => {
+    let rand = Math.random();
+    let sum = 0;
 
-    setPlayerChoice(seg);
-    setResult("");
-    setStatus("waiting");
-
-    // 🤖 simulate opponent thinking
-    setTimeout(() => {
-      const botPick =
-        segments[Math.floor(Math.random() * segments.length)];
-      setBotChoice(botPick);
-      setStatus("ready"); // 👈 now wait for player to press spin
-    }, 1200);
+    for (let i = 0; i < segments.length; i++) {
+      sum += segments[i].weight;
+      if (rand <= sum) return i;
+    }
+    return 0;
   };
 
-  // 🎡 SPIN
   const spin = () => {
-    if (status !== "ready") return;
+    if (spinning || freeSpins <= 0) return;
 
     setSpinning(true);
-    setStatus("spinning");
+    setResult("");
+    setFreeSpins((f) => f - 1);
 
     playSound("spin");
 
-    const winningIndex = Math.floor(Math.random() * segments.length);
-    const landed = segments[winningIndex];
+    const index = getWeightedIndex();
+    const landed = segments[index].label;
 
     const stopAngle =
-      360 - winningIndex * segmentAngle - segmentAngle / 2;
+      360 - index * segmentAngle - segmentAngle / 2;
 
     const spinBase = Math.floor(Math.random() * 720) + 1440;
     const finalRotation = rotation + spinBase + stopAngle;
@@ -83,26 +79,15 @@ export default function WheelBattleTest() {
     setTimeout(() => {
       clearInterval(tick);
 
-      if (landed === playerChoice) {
-        setResult("🎉 You Win!");
-        playSound("win");
-      } else if (landed === botChoice) {
-        setResult("🤖 Bot Wins!");
-        playSound("lose");
-      } else {
-        setResult(`⚖️ Landed on ${landed}`);
+      // 🎯 RESULT ACTIONS
+      if (landed === "🎁 Free Spin" || landed === "🔁 Try Again") {
+        setFreeSpins((f) => f + 1);
       }
 
-      setStatus("finished");
+      setResult(`🎯 ${landed}`);
+      playSound("win");
       setSpinning(false);
     }, 3000);
-  };
-
-  const reset = () => {
-    setPlayerChoice(null);
-    setBotChoice(null);
-    setStatus("choosing");
-    setResult("");
   };
 
   return (
@@ -119,71 +104,13 @@ export default function WheelBattleTest() {
           background: radial-gradient(circle, #1f1c2c, #928dab);
         }
 
-        .status {
-          margin-bottom: 10px;
-          font-size: 14px;
-          opacity: 0.8;
-        }
-
-        .choices {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-
-        .choice {
-          padding: 10px 14px;
-          border-radius: 20px;
-          background: rgba(255,255,255,0.1);
-          cursor: pointer;
-        }
-
-        .disabled {
-          opacity: 0.4;
-          pointer-events: none;
-        }
-
-        .active {
-          background: #ff9800;
-          transform: scale(1.1);
-        }
-
-        .wheel-container {
-          position: relative;
+        .wheel {
           width: 260px;
           height: 260px;
-          margin: 20px;
-        }
-
-        .pointer {
-          position: absolute;
-          top: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          font-size: 30px;
-        }
-
-        .wheel {
-          width: 100%;
-          height: 100%;
           border-radius: 50%;
           border: 5px solid white;
-          overflow: hidden;
+          margin: 20px;
           transition: transform 3s cubic-bezier(0.25,1,0.5,1);
-        }
-
-        .segment {
-          position: absolute;
-          width: 50%;
-          height: 50%;
-          top: 50%;
-          left: 50%;
-          transform-origin: 0% 0%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
         }
 
         button {
@@ -200,71 +127,18 @@ export default function WheelBattleTest() {
       `}</style>
 
       <div className="container">
-        <h2>🎡 Wheel Battle (Test Mode)</h2>
+        <h2>🎡 Free Spin Wheel</h2>
 
-        <div className="status">
-          {status === "choosing" && "Pick your segment"}
-          {status === "waiting" && "⏳ Waiting for opponent..."}
-          {status === "ready" && "✅ Ready! Press Spin"}
-          {status === "spinning" && "🎡 Spinning..."}
-          {status === "finished" && "Result ready"}
-        </div>
+        <p>🎟 Free Spins: {freeSpins}</p>
 
-        {/* choices */}
-        <div className={`choices ${status !== "choosing" ? "disabled" : ""}`}>
-          {segments.map((seg, i) => (
-            <div
-              key={i}
-              className={`choice ${playerChoice === seg ? "active" : ""}`}
-              onClick={() => choose(seg)}
-            >
-              {seg}
-            </div>
-          ))}
-        </div>
+        <div
+          className="wheel"
+          style={{ transform: `rotate(${rotation}deg)` }}
+        />
 
-        {/* info */}
-        {playerChoice && (
-          <p>
-            🧑 You: {playerChoice} | 🤖 Bot: {botChoice || "..."}
-          </p>
-        )}
-
-        {/* wheel */}
-        <div className="wheel-container">
-          <div className="pointer">🔻</div>
-
-          <div
-            className="wheel"
-            style={{ transform: `rotate(${rotation}deg)` }}
-          >
-            {segments.map((seg, i) => (
-              <div
-                key={i}
-                className="segment"
-                style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
-                  background: `hsl(${i * 70}, 70%, 50%)`
-                }}
-              >
-                <div style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
-                  {seg}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ✅ SPIN BUTTON */}
-        {status === "ready" && (
-          <button onClick={spin} disabled={spinning}>
-            🎡 Spin
-          </button>
-        )}
-
-        {status === "finished" && (
-          <button onClick={reset}>🔄 Play Again</button>
-        )}
+        <button onClick={spin} disabled={spinning || freeSpins <= 0}>
+          {spinning ? "Spinning..." : "Spin"}
+        </button>
 
         <div className="result">{result}</div>
       </div>
