@@ -18,8 +18,8 @@ export default function FreeSpinWheelAdvanced() {
   const [total, setTotal] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [freeSpins, setFreeSpins] = useState(1);
-  const [flowers, setFlowers] = useState(false);
   const [error, setError] = useState("");
+  const [flowers, setFlowers] = useState([]);
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
@@ -33,13 +33,13 @@ export default function FreeSpinWheelAdvanced() {
 
     const ctx = audioCtxRef.current;
 
-    const tone = (f, d, v = 0.08) => {
+    const tone = (f, d) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.connect(g);
       g.connect(ctx.destination);
       o.frequency.value = f;
-      g.gain.value = v;
+      g.gain.value = 0.08;
       o.start();
       setTimeout(() => o.stop(), d);
     };
@@ -49,7 +49,6 @@ export default function FreeSpinWheelAdvanced() {
     if (type === "lose") [500, 300, 150].forEach((f, i) => setTimeout(() => tone(f, 150), i * 150));
   };
 
-  // 🎯 weighted pick
   const getIndex = () => {
     let r = Math.random(), sum = 0;
     for (let i = 0; i < segments.length; i++) {
@@ -59,19 +58,26 @@ export default function FreeSpinWheelAdvanced() {
     return 0;
   };
 
+  const spawnFlowers = () => {
+    const newFlowers = Array.from({ length: 20 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100
+    }));
+    setFlowers(newFlowers);
+    setTimeout(() => setFlowers([]), 2000);
+  };
+
   const spin = () => {
     if (spinning) return;
 
-    // 🚫 block if no stake
     if (!stake) {
-      setError("⚠️ Select a stake before spinning");
+      setError("⚠️ Select a stake first");
       setTimeout(() => setError(""), 1500);
       return;
     }
 
     if (freeSpins <= 0) return;
 
-    setError("");
     setSpinning(true);
     setFreeSpins((f) => f - 1);
     setResult("");
@@ -79,12 +85,15 @@ export default function FreeSpinWheelAdvanced() {
     const index = getIndex();
     const landed = segments[index].label;
 
-    const stopAngle = 360 - index * segmentAngle - segmentAngle / 2;
+    // ✅ FIXED POINTER ALIGNMENT
+    const stopAngle =
+      360 - (index * segmentAngle + segmentAngle / 2) + 270;
+
     const spinBase = Math.floor(Math.random() * 720) + 1440;
+    const finalRotation = rotation + spinBase + stopAngle;
 
-    setRotation((r) => r + spinBase + stopAngle);
+    setRotation(finalRotation);
 
-    // 🎡 tick loop
     let tickSpeed = 50;
     const tickLoop = () => {
       if (!spinning) return;
@@ -101,7 +110,7 @@ export default function FreeSpinWheelAdvanced() {
         const mult = parseInt(landed.replace("x", ""));
         win = stake * mult;
         setTotal((t) => t + win);
-        setFlowers(true);
+        spawnFlowers();
         playSound("win");
       } else if (landed === "❌ Lose") {
         setTotal((t) => t - stake);
@@ -112,8 +121,6 @@ export default function FreeSpinWheelAdvanced() {
       }
 
       setResult(`${landed} ${win ? `(+₦${win})` : ""}`);
-
-      setTimeout(() => setFlowers(false), 1500);
       setSpinning(false);
     }, 3000);
   };
@@ -134,42 +141,35 @@ export default function FreeSpinWheelAdvanced() {
         .stake {
           display: flex;
           gap: 10px;
-          margin-bottom: 10px;
         }
 
         .stake button {
-          padding: 10px 15px;
-          border-radius: 12px;
-          border: none;
-          cursor: pointer;
+          padding: 8px 14px;
           background: #444;
+          border: none;
+          border-radius: 10px;
           color: white;
-          transition: 0.2s;
+          cursor: pointer;
         }
 
-        .stake button.active {
-          background: #ff9800;
+        .active {
+          background: orange;
           transform: scale(1.1);
-          box-shadow: 0 0 10px #ff9800;
-        }
-
-        .stake button:disabled {
-          opacity: 0.4;
         }
 
         .wheel-container {
           position: relative;
-          width: 240px;
-          height: 240px;
+          width: 250px;
+          height: 250px;
           margin: 20px;
         }
 
         .pointer {
           position: absolute;
-          top: -18px;
+          top: -20px;
           left: 50%;
           transform: translateX(-50%);
-          font-size: 26px;
+          font-size: 28px;
         }
 
         .wheel {
@@ -194,54 +194,42 @@ export default function FreeSpinWheelAdvanced() {
           font-size: 11px;
         }
 
-        button.spin {
-          padding: 12px 25px;
-          border-radius: 25px;
-          border: none;
-          cursor: pointer;
+        .spin {
+          padding: 10px 20px;
           background: #ff9800;
-          color: white;
-          margin-top: 10px;
-        }
-
-        button.spin.disabled {
-          background: #555;
+          border: none;
+          border-radius: 20px;
+          cursor: pointer;
         }
 
         .error {
-          color: #ff5252;
-          animation: shake 0.3s;
+          color: red;
         }
 
-        @keyframes shake {
-          0% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          50% { transform: translateX(5px); }
-          75% { transform: translateX(-5px); }
-          100% { transform: translateX(0); }
-        }
-
-        .flowers {
+        .flower {
           position: absolute;
-          animation: float 1.5s ease forwards;
+          top: -20px;
+          animation: fall 2s linear forwards;
+          font-size: 20px;
         }
 
-        @keyframes float {
-          from { transform: translateY(0); opacity: 1; }
-          to { transform: translateY(-120px); opacity: 0; }
+        @keyframes fall {
+          to {
+            transform: translateY(120vh);
+            opacity: 0;
+          }
         }
       `}</style>
 
       <div className="container">
         <h2>🎡 Spin Game</h2>
 
-        {/* stake */}
+        {/* Stake */}
         <div className="stake">
           {stakes.map((s) => (
             <button
               key={s}
               className={stake === s ? "active" : ""}
-              disabled={spinning}
               onClick={() => setStake(s)}
             >
               ₦{s}
@@ -249,14 +237,13 @@ export default function FreeSpinWheelAdvanced() {
           ))}
         </div>
 
-        <p>💰 Selected: {stake ? `₦${stake}` : "None"}</p>
+        <p>💰 Stake: {stake || "None"}</p>
+        <p>🏆 Total Won: ₦{total}</p>
         <p>🎟 Spins: {freeSpins}</p>
-        <p>📊 Total: ₦{total}</p>
 
-        {/* error */}
         {error && <p className="error">{error}</p>}
 
-        {/* wheel */}
+        {/* Wheel */}
         <div className="wheel-container">
           <div className="pointer">🔻</div>
 
@@ -269,7 +256,7 @@ export default function FreeSpinWheelAdvanced() {
                 key={i}
                 className="segment"
                 style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
+                  transform: `rotate(${i * segmentAngle - 90}deg) skewY(${90 - segmentAngle}deg)`,
                   background: `hsl(${i * 60},70%,50%)`
                 }}
               >
@@ -281,24 +268,22 @@ export default function FreeSpinWheelAdvanced() {
           </div>
         </div>
 
-        {/* spin */}
-        <button
-          className={`spin ${!stake ? "disabled" : ""}`}
-          onClick={spin}
-        >
-          {!stake ? "⚠️ Select Stake" : spinning ? "Spinning..." : "🎡 Spin"}
+        <button className="spin" onClick={spin}>
+          🎡 Spin
         </button>
 
         <p>{result}</p>
 
-        {/* flowers */}
-        {flowers && (
-          <>
-            <div className="flowers">🌸</div>
-            <div className="flowers" style={{ left: "40%" }}>🌺</div>
-            <div className="flowers" style={{ left: "60%" }}>🌼</div>
-          </>
-        )}
+        {/* 🌸 Flower Rain */}
+        {flowers.map((f) => (
+          <div
+            key={f.id}
+            className="flower"
+            style={{ left: `${f.left}%` }}
+          >
+            🌸
+          </div>
+        ))}
       </div>
     </>
   );
