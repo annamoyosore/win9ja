@@ -1,15 +1,17 @@
 import { useState, useRef } from "react";
 
-export default function BottleGame() {
-  const [playerChoice, setPlayerChoice] = useState(null);
-  const [botChoice, setBotChoice] = useState(null);
-
+export default function FreeWillBottleGame() {
+  const [round, setRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
   const [botScore, setBotScore] = useState(0);
-  const [round, setRound] = useState(1);
+
+  const [playerResult, setPlayerResult] = useState(null);
+  const [botResult, setBotResult] = useState(null);
+
+  const [rotationPlayer, setRotationPlayer] = useState(0);
+  const [rotationBot, setRotationBot] = useState(0);
 
   const [spinning, setSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
   const [gameOver, setGameOver] = useState(false);
 
@@ -38,64 +40,54 @@ export default function BottleGame() {
     setTimeout(() => osc.stop(), 150);
   };
 
-  // 🎯 RESULT
+  // 🎯 RANDOM OUTCOME
   const getOutcome = () => (Math.random() < 0.5 ? "HEAD" : "BOTTOM");
-
-  const choose = (choice) => {
-    if (spinning || gameOver) return;
-    setPlayerChoice(choice);
-    setResult("");
-  };
 
   const spin = () => {
     if (spinning || gameOver) return;
-
-    if (!playerChoice) {
-      setResult("⚠️ Choose Head or Bottom first");
-      return;
-    }
 
     setSpinning(true);
     setResult("");
 
     playSound("spin");
 
-    // 🔐 lock outcomes
-    const outcome = getOutcome();
-    const botPick = Math.random() < 0.5 ? "HEAD" : "BOTTOM";
-    setBotChoice(botPick);
+    const playerFlip = getOutcome();
+    const botFlip = getOutcome();
 
-    let targetAngle =
+    setPlayerResult(playerFlip);
+    setBotResult(botFlip);
+
+    // 🎯 rotation zones
+    const getAngle = (outcome) =>
       outcome === "HEAD"
         ? Math.random() * 150 + 10
         : Math.random() * 150 + 180;
 
-    const finalRotation =
-      Math.floor(Math.random() * 720) + 1080 + targetAngle;
-
-    setRotation(finalRotation);
+    setRotationPlayer(Math.floor(Math.random() * 720) + 1080 + getAngle(playerFlip));
+    setRotationBot(Math.floor(Math.random() * 720) + 1080 + getAngle(botFlip));
 
     setTimeout(() => {
       let newPlayerScore = playerScore;
       let newBotScore = botScore;
 
-      if (outcome === playerChoice) {
+      // 🧠 RULE: HEAD beats BOTTOM
+      if (playerFlip === botFlip) {
+        setResult("⚖️ Draw Round");
+      } else if (playerFlip === "HEAD") {
         newPlayerScore++;
         setPlayerScore(newPlayerScore);
-        setResult("🎉 You scored!");
+        setResult("🎉 You Win Round!");
         playSound("win");
-      } else if (outcome === botPick) {
+      } else {
         newBotScore++;
         setBotScore(newBotScore);
-        setResult("🤖 Bot scored!");
+        setResult("🤖 Bot Wins Round!");
         playSound("lose");
-      } else {
-        setResult("⚖️ No point this round");
       }
 
       setSpinning(false);
 
-      // 🔄 Next round or end
+      // 🔚 End after 3 rounds
       setTimeout(() => {
         if (round === 3) {
           if (newPlayerScore > newBotScore) {
@@ -108,20 +100,19 @@ export default function BottleGame() {
           setGameOver(true);
         } else {
           setRound((r) => r + 1);
-          setPlayerChoice(null);
         }
       }, 800);
     }, 2000);
   };
 
   const resetGame = () => {
+    setRound(1);
     setPlayerScore(0);
     setBotScore(0);
-    setRound(1);
     setGameOver(false);
     setResult("");
-    setPlayerChoice(null);
-    setBotChoice(null);
+    setPlayerResult(null);
+    setBotResult(null);
   };
 
   return (
@@ -133,9 +124,9 @@ export default function BottleGame() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          font-family: Arial;
           color: white;
-          background: linear-gradient(-45deg, #141e30, #243b55);
+          font-family: Arial;
+          background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364);
           background-size: 400% 400%;
           animation: bg 10s ease infinite;
         }
@@ -146,22 +137,28 @@ export default function BottleGame() {
           100% {background-position: 0% 50%;}
         }
 
-        .controls button {
-          margin: 8px;
-          padding: 12px 22px;
-          border-radius: 25px;
-          border: none;
-          cursor: pointer;
-        }
-
-        .active {
-          transform: scale(1.1);
-          box-shadow: 0 0 10px white;
+        .arena {
+          display: flex;
+          gap: 60px;
+          margin: 20px;
         }
 
         .bottle {
-          font-size: 120px;
+          font-size: 100px;
           transition: transform 2s ease;
+        }
+
+        .label {
+          text-align: center;
+          margin-top: 5px;
+        }
+
+        button {
+          padding: 12px 25px;
+          border-radius: 25px;
+          border: none;
+          cursor: pointer;
+          margin-top: 10px;
         }
 
         .result {
@@ -171,33 +168,32 @@ export default function BottleGame() {
       `}</style>
 
       <div className="container">
-        <h2>Bottle Flip (3 Rounds)</h2>
+        <h2>Free Will Bottle (No Choice)</h2>
 
         <div>
           Round {round}/3 | 🧑 {playerScore} - {botScore} 🤖
         </div>
 
-        <div className="controls">
-          <button
-            className={playerChoice === "HEAD" ? "active" : ""}
-            onClick={() => choose("HEAD")}
-          >
-            Head
-          </button>
+        <div className="arena">
+          <div>
+            <div
+              className="bottle"
+              style={{ transform: `rotate(${rotationPlayer}deg)` }}
+            >
+              🍾
+            </div>
+            <div className="label">You: {playerResult || "?"}</div>
+          </div>
 
-          <button
-            className={playerChoice === "BOTTOM" ? "active" : ""}
-            onClick={() => choose("BOTTOM")}
-          >
-            Bottom
-          </button>
-        </div>
-
-        <div
-          className="bottle"
-          style={{ transform: `rotate(${rotation}deg)` }}
-        >
-          🍾
+          <div>
+            <div
+              className="bottle"
+              style={{ transform: `rotate(${rotationBot}deg)` }}
+            >
+              🍾
+            </div>
+            <div className="label">Bot: {botResult || "?"}</div>
+          </div>
         </div>
 
         <button onClick={spin} disabled={spinning}>
