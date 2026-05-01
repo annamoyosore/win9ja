@@ -1,10 +1,10 @@
 import { useState, useRef } from "react";
 
-export default function SpinWheelFinal() {
+export default function CasinoWheel() {
   const segments = [
     "❌ Lose",
     "x2",
-    "❌ Lose",
+    "🎁 Free",
     "x3",
     "➖ -50%",
     "x1",
@@ -18,20 +18,23 @@ export default function SpinWheelFinal() {
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
   const [total, setTotal] = useState(0);
+  const [won, setWon] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [overlay, setOverlay] = useState(null);
   const [countdown, setCountdown] = useState(null);
+  const [freeSpins, setFreeSpins] = useState(0);
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
 
-  // 🎯 RESULT POOL
+  // 🎯 PROBABILITY
   const pool = [
-    { type: "LOSE", weight: 0.58 },
-    { type: "HALF", weight: 0.10 },
-    { type: "X1", weight: 0.10 },
-    { type: "X2", weight: 0.14 },
-    { type: "X3", weight: 0.06 },
+    { type: "LOSE", weight: 0.39 },
+    { type: "HALF", weight: 0.12 },
+    { type: "X1", weight: 0.12 },
+    { type: "FREE", weight: 0.08 },
+    { type: "X2", weight: 0.20 },
+    { type: "X3", weight: 0.08 },
     { type: "X10", weight: 0.01 }
   ];
 
@@ -72,14 +75,6 @@ export default function SpinWheelFinal() {
     }
   };
 
-  const resetGame = () => {
-    setRotation(0);
-    setResult("");
-    setOverlay(null);
-    setSpinning(false);
-    setCountdown(null);
-  };
-
   const startResetCountdown = () => {
     let time = 5;
     setCountdown(time);
@@ -87,10 +82,12 @@ export default function SpinWheelFinal() {
     const interval = setInterval(() => {
       time--;
       setCountdown(time);
-
       if (time <= 0) {
         clearInterval(interval);
-        resetGame();
+        setRotation(0);
+        setResult("");
+        setOverlay(null);
+        setCountdown(null);
       }
     }, 1000);
   };
@@ -98,7 +95,7 @@ export default function SpinWheelFinal() {
   const spin = () => {
     if (spinning) return;
 
-    if (!stake) {
+    if (!stake && freeSpins <= 0) {
       setResult("⚠️ Select stake first");
       return;
     }
@@ -106,29 +103,31 @@ export default function SpinWheelFinal() {
     setSpinning(true);
     setResult("");
     setOverlay(null);
+    setWon(0);
 
     const outcome = getResult();
 
-    let indexMap = {
-      LOSE: [0, 2],
+    const indexMap = {
+      LOSE: [0],
       X2: [1],
+      FREE: [2],
       X3: [3],
       HALF: [4],
       X1: [5],
       X10: [6]
     };
 
-    const indexes = indexMap[outcome];
-    const index = indexes[Math.floor(Math.random() * indexes.length)];
+    const index =
+      indexMap[outcome][Math.floor(Math.random() * indexMap[outcome].length)];
 
-    const stopAngle =
-      360 - (index * segmentAngle + segmentAngle / 2);
-
+    const stopAngle = 360 - (index * segmentAngle + segmentAngle / 2);
     const finalRotation = 1440 + stopAngle;
+
     setRotation(finalRotation);
 
     setTimeout(() => {
       let text = "";
+      let win = 0;
 
       if (outcome === "LOSE") {
         setTotal((t) => t - stake);
@@ -144,23 +143,31 @@ export default function SpinWheelFinal() {
 
       } else if (outcome === "X1") {
         playSound("win");
-        setOverlay("draw");
         text = "⚖️ No Gain";
+
+      } else if (outcome === "FREE") {
+        setFreeSpins((f) => f + 1);
+        playSound("win");
+        text = "🎁 Free Spin!";
 
       } else {
         const mult = parseInt(outcome.replace("X", ""));
-        const win = stake * mult;
+        win = stake * mult;
         setTotal((t) => t + win);
+        setWon(win);
         playSound("win");
         setOverlay("win");
-        text = `🎉 ${outcome} (+₦${win})`;
+        text = `🎉 ${outcome}`;
       }
 
       setResult(text);
       setSpinning(false);
 
-      startResetCountdown();
+      if (freeSpins > 0 && outcome !== "FREE") {
+        setFreeSpins((f) => f - 1);
+      }
 
+      startResetCountdown();
     }, 3000);
   };
 
@@ -173,8 +180,14 @@ export default function SpinWheelFinal() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle, #1f1c2c, #928dab);
+          background: radial-gradient(circle at top, #1a1a2e, #000);
           color: white;
+          font-family: Arial;
+        }
+
+        h2 {
+          color: gold;
+          text-shadow: 0 0 10px gold;
         }
 
         .stake {
@@ -183,17 +196,18 @@ export default function SpinWheelFinal() {
         }
 
         .stake button {
-          padding: 8px 14px;
-          border-radius: 10px;
+          padding: 10px 16px;
+          border-radius: 12px;
           border: none;
-          background: #444;
+          background: #333;
           color: white;
-          cursor: pointer;
+          font-weight: bold;
         }
 
         .active {
           background: purple;
           transform: scale(1.1);
+          box-shadow: 0 0 10px purple;
         }
 
         .wheel-container {
@@ -215,9 +229,8 @@ export default function SpinWheelFinal() {
           width: 100%;
           height: 100%;
           border-radius: 50%;
-          border: 6px solid white;
+          border: 6px solid gold;
           transition: transform 3s cubic-bezier(0.25,1,0.5,1);
-
           background: conic-gradient(
             #ff3b3b 0deg 45deg,
             #ffd93b 45deg 90deg,
@@ -230,24 +243,12 @@ export default function SpinWheelFinal() {
           );
         }
 
-        .label {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform-origin: center;
-          font-size: 13px;
-          font-weight: bold;
-        }
-
-        .gold {
-          color: gold;
-          text-shadow: 0 0 10px gold;
-          animation: glow 1s infinite alternate;
-        }
-
-        @keyframes glow {
-          from { text-shadow: 0 0 5px gold; }
-          to { text-shadow: 0 0 20px gold; }
+        .box {
+          margin-top: 10px;
+          padding: 10px;
+          border: 2px solid gold;
+          border-radius: 10px;
+          background: rgba(255,215,0,0.1);
         }
 
         .overlay {
@@ -261,21 +262,16 @@ export default function SpinWheelFinal() {
           justify-content: center;
           background: rgba(0,0,0,0.7);
           font-size: 40px;
-          z-index: 999;
         }
-
-        .win { color: gold; }
-        .lose { color: red; }
 
         .countdown {
           margin-top: 10px;
-          font-size: 18px;
-          color: #ccc;
+          color: #aaa;
         }
       `}</style>
 
       <div className="container">
-        <h2>🎡 Spin & Win</h2>
+        <h2>🎡 Casino Wheel</h2>
 
         <div className="stake">
           {stakes.map((s) => (
@@ -289,49 +285,31 @@ export default function SpinWheelFinal() {
           ))}
         </div>
 
-        <p>💰 Total: ₦{total}</p>
+        <p>🎟 Free Spins: {freeSpins}</p>
 
         <div className="wheel-container">
           <div className="pointer">🔻</div>
-
-          <div
-            className="wheel"
-            style={{ transform: `rotate(${rotation}deg)` }}
-          >
-            {segments.map((seg, i) => {
-              const angle = i * segmentAngle;
-              return (
-                <div
-                  key={i}
-                  className={`label ${seg.includes("x30") ? "gold" : ""}`}
-                  style={{
-                    transform: `rotate(${angle}deg) translateY(-105px)`
-                  }}
-                >
-                  <span style={{ transform: `rotate(-${angle}deg)` }}>
-                    {seg}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <div className="wheel" style={{ transform: `rotate(${rotation}deg)` }} />
         </div>
 
         <button onClick={spin}>
           {spinning ? "Spinning..." : "🎡 Spin"}
         </button>
 
+        <div className="box">
+          💰 Total: ₦{total} <br />
+          🏆 Won: ₦{won}
+        </div>
+
         <p>{result}</p>
 
-        {countdown !== null && (
-          <p className="countdown">🔄 Resetting in {countdown}s...</p>
+        {countdown && (
+          <p className="countdown">Resetting in {countdown}s...</p>
         )}
 
         {overlay && (
-          <div className={`overlay ${overlay}`}>
-            {overlay === "win" && "🏆 YOU WIN!"}
-            {overlay === "lose" && "😢 YOU LOST"}
-            {overlay === "draw" && "⚖️ DRAW"}
+          <div className="overlay">
+            {overlay === "win" ? "🏆 WIN!" : "😢 LOSE"}
           </div>
         )}
       </div>
