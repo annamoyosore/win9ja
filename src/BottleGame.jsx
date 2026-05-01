@@ -1,21 +1,22 @@
 import { useState, useRef } from "react";
 
-export default function FreeWillBottleGame() {
-  const [round, setRound] = useState(1);
-  const [playerScore, setPlayerScore] = useState(0);
-  const [botScore, setBotScore] = useState(0);
-
-  const [playerResult, setPlayerResult] = useState(null);
-  const [botResult, setBotResult] = useState(null);
-
-  const [rotationPlayer, setRotationPlayer] = useState(0);
-  const [rotationBot, setRotationBot] = useState(0);
-
+export default function WheelSpinGame() {
+  const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState("");
-  const [gameOver, setGameOver] = useState(false);
 
   const audioCtxRef = useRef(null);
+
+  const segments = [
+    "💰 Win",
+    "❌ Lose",
+    "🎁 Bonus",
+    "💀 Penalty",
+    "⭐ Lucky",
+    "🔥 Jackpot"
+  ];
+
+  const segmentAngle = 360 / segments.length;
 
   // 🔊 SOUND
   const playSound = (type) => {
@@ -32,87 +33,47 @@ export default function FreeWillBottleGame() {
     gain.connect(ctx.destination);
 
     if (type === "spin") osc.frequency.value = 300;
+    if (type === "tick") osc.frequency.value = 800;
     if (type === "win") osc.frequency.value = 600;
-    if (type === "lose") osc.frequency.value = 150;
 
     gain.gain.value = 0.08;
     osc.start();
-    setTimeout(() => osc.stop(), 150);
+    setTimeout(() => osc.stop(), 100);
   };
 
-  // 🎯 RANDOM OUTCOME
-  const getOutcome = () => (Math.random() < 0.5 ? "HEAD" : "BOTTOM");
-
-  const spin = () => {
-    if (spinning || gameOver) return;
+  const spinWheel = () => {
+    if (spinning) return;
 
     setSpinning(true);
     setResult("");
 
     playSound("spin");
 
-    const playerFlip = getOutcome();
-    const botFlip = getOutcome();
+    const randomIndex = Math.floor(Math.random() * segments.length);
 
-    setPlayerResult(playerFlip);
-    setBotResult(botFlip);
+    // 🎯 Calculate stop angle
+    const stopAngle =
+      360 - randomIndex * segmentAngle - segmentAngle / 2;
 
-    // 🎯 rotation zones
-    const getAngle = (outcome) =>
-      outcome === "HEAD"
-        ? Math.random() * 150 + 10
-        : Math.random() * 150 + 180;
+    const spinBase = Math.floor(Math.random() * 720) + 1440;
+    const finalRotation = rotation + spinBase + stopAngle;
 
-    setRotationPlayer(Math.floor(Math.random() * 720) + 1080 + getAngle(playerFlip));
-    setRotationBot(Math.floor(Math.random() * 720) + 1080 + getAngle(botFlip));
+    setRotation(finalRotation);
+
+    // 🔔 ticking effect
+    let tickInterval = setInterval(() => {
+      playSound("tick");
+    }, 120);
 
     setTimeout(() => {
-      let newPlayerScore = playerScore;
-      let newBotScore = botScore;
+      clearInterval(tickInterval);
 
-      // 🧠 RULE: HEAD beats BOTTOM
-      if (playerFlip === botFlip) {
-        setResult("⚖️ Draw Round");
-      } else if (playerFlip === "HEAD") {
-        newPlayerScore++;
-        setPlayerScore(newPlayerScore);
-        setResult("🎉 You Win Round!");
-        playSound("win");
-      } else {
-        newBotScore++;
-        setBotScore(newBotScore);
-        setResult("🤖 Bot Wins Round!");
-        playSound("lose");
-      }
+      const landed = segments[randomIndex];
+      setResult(`🎯 ${landed}`);
 
+      playSound("win");
       setSpinning(false);
-
-      // 🔚 End after 3 rounds
-      setTimeout(() => {
-        if (round === 3) {
-          if (newPlayerScore > newBotScore) {
-            setResult("🏆 You Win The Game!");
-          } else if (newBotScore > newPlayerScore) {
-            setResult("💀 Bot Wins The Game!");
-          } else {
-            setResult("🤝 Draw Game!");
-          }
-          setGameOver(true);
-        } else {
-          setRound((r) => r + 1);
-        }
-      }, 800);
-    }, 2000);
-  };
-
-  const resetGame = () => {
-    setRound(1);
-    setPlayerScore(0);
-    setBotScore(0);
-    setGameOver(false);
-    setResult("");
-    setPlayerResult(null);
-    setBotResult(null);
+    }, 3000);
   };
 
   return (
@@ -124,33 +85,49 @@ export default function FreeWillBottleGame() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          color: white;
           font-family: Arial;
-          background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364);
-          background-size: 400% 400%;
-          animation: bg 10s ease infinite;
+          color: white;
+          background: radial-gradient(circle at top, #1f1c2c, #928dab);
         }
 
-        @keyframes bg {
-          0% {background-position: 0% 50%;}
-          50% {background-position: 100% 50%;}
-          100% {background-position: 0% 50%;}
-        }
-
-        .arena {
-          display: flex;
-          gap: 60px;
+        .wheel-container {
+          position: relative;
+          width: 260px;
+          height: 260px;
           margin: 20px;
         }
 
-        .bottle {
-          font-size: 100px;
-          transition: transform 2s ease;
+        .pointer {
+          position: absolute;
+          top: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 30px;
+          z-index: 5;
         }
 
-        .label {
+        .wheel {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          border: 6px solid white;
+          position: relative;
+          overflow: hidden;
+          transition: transform 3s cubic-bezier(0.25,1,0.5,1);
+        }
+
+        .segment {
+          position: absolute;
+          width: 50%;
+          height: 50%;
+          top: 50%;
+          left: 50%;
+          transform-origin: 0% 0%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
           text-align: center;
-          margin-top: 5px;
         }
 
         button {
@@ -158,53 +135,49 @@ export default function FreeWillBottleGame() {
           border-radius: 25px;
           border: none;
           cursor: pointer;
-          margin-top: 10px;
+          font-weight: bold;
         }
 
         .result {
-          margin-top: 15px;
+          margin-top: 20px;
           font-size: 22px;
         }
       `}</style>
 
       <div className="container">
-        <h2>Free Will Bottle (No Choice)</h2>
+        <h2>🎡 Wheel Spin Game</h2>
 
-        <div>
-          Round {round}/3 | 🧑 {playerScore} - {botScore} 🤖
+        <div className="wheel-container">
+          <div className="pointer">🔻</div>
+
+          <div
+            className="wheel"
+            style={{ transform: `rotate(${rotation}deg)` }}
+          >
+            {segments.map((seg, i) => (
+              <div
+                key={i}
+                className="segment"
+                style={{
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${
+                    90 - segmentAngle
+                  }deg)`,
+                  background: `hsl(${i * 60}, 70%, 50%)`
+                }}
+              >
+                <div style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
+                  {seg}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="arena">
-          <div>
-            <div
-              className="bottle"
-              style={{ transform: `rotate(${rotationPlayer}deg)` }}
-            >
-              🍾
-            </div>
-            <div className="label">You: {playerResult || "?"}</div>
-          </div>
-
-          <div>
-            <div
-              className="bottle"
-              style={{ transform: `rotate(${rotationBot}deg)` }}
-            >
-              🍾
-            </div>
-            <div className="label">Bot: {botResult || "?"}</div>
-          </div>
-        </div>
-
-        <button onClick={spin} disabled={spinning}>
-          {spinning ? "Flipping..." : "Flip"}
+        <button onClick={spinWheel} disabled={spinning}>
+          {spinning ? "Spinning..." : "Spin Wheel"}
         </button>
 
         <div className="result">{result}</div>
-
-        {gameOver && (
-          <button onClick={resetGame}>🔄 Play Again</button>
-        )}
       </div>
     </>
   );
