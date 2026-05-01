@@ -8,6 +8,10 @@ export default function BottleGame() {
   const [result, setResult] = useState("");
   const [phase, setPhase] = useState("idle");
 
+  const [playerScore, setPlayerScore] = useState(0);
+  const [botScore, setBotScore] = useState(0);
+  const [round, setRound] = useState(1);
+
   const audioCtxRef = useRef(null);
 
   // 🔊 SOUND
@@ -29,16 +33,21 @@ export default function BottleGame() {
       gain.gain.value = 0.05;
     }
 
-    if (type === "land") {
+    if (type === "win") {
+      osc.frequency.value = 600;
+      gain.gain.value = 0.1;
+    }
+
+    if (type === "lose") {
       osc.frequency.value = 150;
-      gain.gain.value = 0.12;
+      gain.gain.value = 0.1;
     }
 
     osc.start();
-    setTimeout(() => osc.stop(), type === "spin" ? 300 : 200);
+    setTimeout(() => osc.stop(), 200);
   };
 
-  // 🎯 2-WAY RESULT (50/50)
+  // 🎯 2-WAY RESULT
   const getResult = (playerChoice) => {
     const outcome = Math.random() < 0.5 ? "HEAD" : "BOTTOM";
     const botChoice = playerChoice === "HEAD" ? "BOTTOM" : "HEAD";
@@ -51,6 +60,13 @@ export default function BottleGame() {
   const choose = (choice) => {
     if (spinning) return;
     setPlayerChoice(choice);
+    setResult("");
+  };
+
+  const resetGame = () => {
+    setPlayerScore(0);
+    setBotScore(0);
+    setRound(1);
     setResult("");
   };
 
@@ -68,15 +84,13 @@ export default function BottleGame() {
 
     playSound("spin");
 
-    // 🔐 lock result
     const { outcome, winner, botChoice } = getResult(playerChoice);
     setBotChoice(botChoice);
 
-    // 🎯 2 zones only
     let targetAngle =
       outcome === "HEAD"
-        ? Math.random() * 150 + 10   // HEAD zone
-        : Math.random() * 150 + 180; // BOTTOM zone
+        ? Math.random() * 150 + 10
+        : Math.random() * 150 + 180;
 
     const spinBase = Math.floor(Math.random() * 720) + 1080;
     const finalRotation = spinBase + targetAngle;
@@ -86,11 +100,34 @@ export default function BottleGame() {
     setTimeout(() => setPhase("slowing"), 1400);
 
     setTimeout(() => {
-      playSound("land");
+      let newPlayerScore = playerScore;
+      let newBotScore = botScore;
 
-      setResult(
-        winner === "USER" ? "🎉 You Win!" : "🤖 Bot Wins!"
-      );
+      if (winner === "USER") {
+        newPlayerScore++;
+        playSound("win");
+        setResult("🎉 You Win Round!");
+      } else {
+        newBotScore++;
+        playSound("lose");
+        setResult("🤖 Bot Wins Round!");
+      }
+
+      setPlayerScore(newPlayerScore);
+      setBotScore(newBotScore);
+
+      // 🏆 Check final winner
+      if (newPlayerScore === 2 || newBotScore === 2) {
+        setTimeout(() => {
+          if (newPlayerScore === 2) {
+            setResult("🏆 You Won The Match!");
+          } else {
+            setResult("💀 Bot Won The Match!");
+          }
+        }, 300);
+      } else {
+        setRound((r) => r + 1);
+      }
 
       setPhase("result");
       setSpinning(false);
@@ -108,9 +145,12 @@ export default function BottleGame() {
           justify-content: center;
           font-family: Arial;
           color: white;
-          background: linear-gradient(-45deg, #141e30, #243b55);
+          position: relative;
+          overflow: hidden;
+
+          background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #1e3c72);
           background-size: 400% 400%;
-          animation: bg 10s ease infinite;
+          animation: bg 12s ease infinite;
         }
 
         @keyframes bg {
@@ -119,21 +159,44 @@ export default function BottleGame() {
           100% {background-position: 0% 50%;}
         }
 
+        /* ✨ floating glow circles */
+        .bg-glow {
+          position: absolute;
+          width: 400px;
+          height: 400px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,255,255,0.1), transparent);
+          animation: float 10s infinite alternate;
+        }
+
+        .bg-glow:nth-child(1) { top: 10%; left: 10%; }
+        .bg-glow:nth-child(2) { bottom: 10%; right: 10%; animation-duration: 14s; }
+
+        @keyframes float {
+          from { transform: translateY(0px); }
+          to { transform: translateY(-40px); }
+        }
+
+        .score {
+          position: absolute;
+          top: 15px;
+          font-size: 16px;
+        }
+
         .controls button {
           margin: 8px;
           padding: 12px 22px;
-          border: none;
           border-radius: 25px;
-          cursor: pointer;
+          border: none;
           font-weight: bold;
-          transition: 0.2s;
+          cursor: pointer;
           opacity: 0.7;
         }
 
-        .controls button.active {
+        .controls .active {
           opacity: 1;
           transform: scale(1.1);
-          box-shadow: 0 0 10px rgba(255,255,255,0.5);
+          box-shadow: 0 0 10px white;
         }
 
         .head { background: #4caf50; }
@@ -141,37 +204,13 @@ export default function BottleGame() {
 
         .spin {
           background: #ff5722;
-          margin-top: 10px;
           padding: 12px 28px;
-          border-radius: 30px;
-        }
-
-        .bottle-area {
-          position: relative;
-          margin: 40px 0;
-        }
-
-        .pointer {
-          position: absolute;
-          top: -25px;
-          left: 50%;
-          transform: translateX(-50%);
-          font-size: 32px;
-        }
-
-        .labels {
-          position: absolute;
-          top: -55px;
-          width: 260px;
-          display: flex;
-          justify-content: space-between;
-          font-size: 12px;
-          opacity: 0.8;
+          margin-top: 10px;
         }
 
         .bottle {
           font-size: 120px;
-          transition: transform 2.2s cubic-bezier(0.25, 1, 0.5, 1);
+          transition: transform 2.2s cubic-bezier(0.25,1,0.5,1);
         }
 
         .bounce {
@@ -184,27 +223,22 @@ export default function BottleGame() {
           100% { transform: scale(1) rotate(var(--rot)); }
         }
 
-        .status {
-          font-size: 14px;
-          opacity: 0.8;
-        }
-
         .result {
-          margin-top: 20px;
-          font-size: 24px;
-          animation: fadeIn 0.4s ease;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
+          margin-top: 15px;
+          font-size: 22px;
         }
       `}</style>
 
       <div className="container">
-        <h2>Bottle Flip (Head vs Bottom)</h2>
+        <div className="bg-glow"></div>
+        <div className="bg-glow"></div>
 
-        {/* Choice */}
+        <div className="score">
+          Round {round} | 🧑 {playerScore} - {botScore} 🤖
+        </div>
+
+        <h2>Bottle Flip (Best of 3)</h2>
+
         <div className="controls">
           <button
             className={`head ${playerChoice === "HEAD" ? "active" : ""}`}
@@ -212,7 +246,6 @@ export default function BottleGame() {
           >
             Head
           </button>
-
           <button
             className={`bottom ${playerChoice === "BOTTOM" ? "active" : ""}`}
             onClick={() => choose("BOTTOM")}
@@ -221,43 +254,24 @@ export default function BottleGame() {
           </button>
         </div>
 
-        {/* Bottle */}
-        <div className="bottle-area">
-          <div className="pointer">🔻</div>
-
-          <div className="labels">
-            <span>HEAD</span>
-            <span>BOTTOM</span>
-          </div>
-
-          <div
-            className={`bottle ${phase === "result" ? "bounce" : ""}`}
-            style={{
-              transform: `rotate(${rotation}deg)`,
-              "--rot": `${rotation}deg`
-            }}
-          >
-            🍾
-          </div>
+        <div
+          className={`bottle ${phase === "result" ? "bounce" : ""}`}
+          style={{ transform: `rotate(${rotation}deg)`, "--rot": `${rotation}deg` }}
+        >
+          🍾
         </div>
 
-        {/* Spin */}
         <button className="spin" onClick={spin} disabled={spinning}>
           {spinning ? "Spinning..." : "Flip Bottle"}
         </button>
 
-        {/* Status */}
-        {phase === "spinning" && <p className="status">🌀 Spinning...</p>}
-        {phase === "slowing" && <p className="status">⏳ Almost there...</p>}
-
-        {playerChoice && (
-          <p className="status">
-            🧑 You: {playerChoice} | 🤖 Bot: {botChoice || "..."}
-          </p>
-        )}
-
-        {/* Result */}
         {result && <div className="result">{result}</div>}
+
+        {(playerScore === 2 || botScore === 2) && (
+          <button onClick={resetGame} style={{ marginTop: "10px" }}>
+            🔄 Play Again
+          </button>
+        )}
       </div>
     </>
   );
