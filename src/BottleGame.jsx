@@ -12,22 +12,21 @@ export default function CasinoWheel() {
     "💎 JACKPOT"
   ];
 
+  const segmentAngle = 360 / segments.length;
+
   const stakes = [50, 100, 200, 500];
 
   const [stake, setStake] = useState(null);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
-  const [won, setWon] = useState(0);
   const [total, setTotal] = useState(0);
+  const [won, setWon] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [overlay, setOverlay] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [freeSpins, setFreeSpins] = useState(0);
-  const [particles, setParticles] = useState([]);
-  const [glow, setGlow] = useState(false);
 
   const audioCtxRef = useRef(null);
-  const segmentAngle = 360 / segments.length;
 
   const pool = [
     { type: "LOSE", weight: 0.39 },
@@ -45,16 +44,6 @@ export default function CasinoWheel() {
       sum += p.weight;
       if (r <= sum) return p.type;
     }
-  };
-
-  const spawnConfetti = () => {
-    const items = Array.from({ length: 30 }).map((_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 0.5
-    }));
-    setParticles(items);
-    setTimeout(() => setParticles([]), 2500);
   };
 
   const playSound = (type) => {
@@ -78,25 +67,24 @@ export default function CasinoWheel() {
     if (type === "win") [400, 700, 1000].forEach((f, i) =>
       setTimeout(() => tone(f, 200), i * 120)
     );
-
     if (type === "lose") [500, 300, 120].forEach((f, i) =>
       setTimeout(() => tone(f, 200), i * 150)
     );
   };
 
-  const startReset = () => {
-    let t = 5;
-    setCountdown(t);
-    const i = setInterval(() => {
-      t--;
-      setCountdown(t);
-      if (t <= 0) {
-        clearInterval(i);
+  const startResetCountdown = () => {
+    let time = 5;
+    setCountdown(time);
+
+    const interval = setInterval(() => {
+      time--;
+      setCountdown(time);
+      if (time <= 0) {
+        clearInterval(interval);
         setRotation(0);
         setResult("");
         setOverlay(null);
         setCountdown(null);
-        setGlow(false);
       }
     }, 1000);
   };
@@ -105,7 +93,7 @@ export default function CasinoWheel() {
     if (spinning) return;
 
     if (!stake && freeSpins <= 0) {
-      setResult("⚠️ Select stake");
+      setResult("⚠️ Select stake first");
       return;
     }
 
@@ -116,33 +104,26 @@ export default function CasinoWheel() {
 
     const outcome = getResult();
 
-    const indexMap = {
-      LOSE: [0],
-      X2: [1],
-      FREE: [2],
-      X3: [3],
-      HALF: [4],
-      X1: [5],
-      X10: [6]
+    const map = {
+      LOSE: 0,
+      X2: 1,
+      FREE: 2,
+      X3: 3,
+      HALF: 4,
+      X1: 5,
+      X10: 6
     };
 
-    let index =
-      indexMap[outcome][Math.floor(Math.random() * indexMap[outcome].length)];
+    const index = map[outcome];
 
-    // 🎡 Near jackpot effect
-    const jackpotIndex = 7;
-    if (Math.random() < 0.4 && outcome !== "X10") {
-      index = jackpotIndex - 1;
-    }
+    const stopAngle =
+      360 - (index * segmentAngle + segmentAngle / 2);
 
-    const stopAngle = 360 - (index * segmentAngle + segmentAngle / 2);
-    const finalRotation = rotation + 1440 + stopAngle;
+    const finalRotation = 1440 + stopAngle;
 
     setRotation(finalRotation);
 
     setTimeout(() => {
-      setGlow(true); // ✨ pointer glow
-
       let text = "";
       let win = 0;
 
@@ -171,10 +152,9 @@ export default function CasinoWheel() {
       } else {
         const mult = parseInt(outcome.replace("X", ""));
         win = stake * mult;
-        setWon(win);
         setTotal((t) => t + win);
+        setWon(win);
         playSound("win");
-        spawnConfetti();
         setOverlay("win");
         text = `🎉 Won ₦${win}`;
       }
@@ -182,7 +162,7 @@ export default function CasinoWheel() {
       setResult(text);
       setSpinning(false);
 
-      startReset();
+      startResetCountdown();
     }, 3000);
   };
 
@@ -190,13 +170,13 @@ export default function CasinoWheel() {
     <>
       <style>{`
         .container {
-          height:100vh;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          justify-content:center;
-          background: radial-gradient(circle,#0f2027,#000);
-          color:white;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle, #1a1a2e, #000);
+          color: white;
         }
 
         .stake button {
@@ -209,7 +189,7 @@ export default function CasinoWheel() {
         }
 
         .active {
-          background:purple;
+          background: purple;
           box-shadow:0 0 10px purple;
         }
 
@@ -224,25 +204,19 @@ export default function CasinoWheel() {
           top:-20px;
           left:50%;
           transform:translateX(-50%);
-          font-size:24px;
-          transition:0.3s;
-        }
-
-        .glow {
-          text-shadow:0 0 15px gold,0 0 25px gold;
-          transform:translateX(-50%) scale(1.2);
+          font-size:26px;
         }
 
         .wheel {
           width:100%;
           height:100%;
           border-radius:50%;
-          border:5px solid gold;
+          border:6px solid gold;
           position:relative;
           transition:transform 3s cubic-bezier(0.25,1,0.5,1);
         }
 
-        .seg {
+        .segment {
           position:absolute;
           width:50%;
           height:50%;
@@ -250,41 +224,15 @@ export default function CasinoWheel() {
           left:50%;
           transform-origin:0% 0%;
           display:flex;
-          justify-content:center;
           align-items:center;
-          font-size:12px;
+          justify-content:center;
+          font-size:11px;
+          font-weight:bold;
         }
 
         .jackpot {
           color:gold;
           text-shadow:0 0 10px gold;
-        }
-
-        .confetti {
-          position:fixed;
-          top:-20px;
-          font-size:20px;
-          animation:fall 2.5s linear forwards;
-        }
-
-        @keyframes fall {
-          to {
-            transform:translateY(110vh) rotate(360deg);
-            opacity:0;
-          }
-        }
-
-        .overlay {
-          position:fixed;
-          top:0;
-          left:0;
-          width:100%;
-          height:100%;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          background:rgba(0,0,0,0.7);
-          font-size:40px;
         }
       `}</style>
 
@@ -303,8 +251,10 @@ export default function CasinoWheel() {
           ))}
         </div>
 
+        <p>🎟 Free Spins: {freeSpins}</p>
+
         <div className="wheel-container">
-          <div className={`pointer ${glow ? "glow" : ""}`}>🔻</div>
+          <div className="pointer">🔻</div>
 
           <div
             className="wheel"
@@ -313,9 +263,10 @@ export default function CasinoWheel() {
             {segments.map((seg, i) => (
               <div
                 key={i}
-                className={`seg ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
+                className={`segment ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
                 style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
+                  background: `hsl(${i * 45},70%,50%)`
                 }}
               >
                 <span style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
@@ -330,27 +281,25 @@ export default function CasinoWheel() {
           {spinning ? "Spinning..." : "🎡 Spin"}
         </button>
 
-        <p>💰 Total: ₦{total}</p>
-        <p>🏆 Won: ₦{won}</p>
+        <div>
+          💰 Total: ₦{total} | 🏆 Won: ₦{won}
+        </div>
+
         <p>{result}</p>
 
         {countdown && <p>Resetting in {countdown}s...</p>}
 
         {overlay && (
-          <div className="overlay">
+          <div style={{
+            position:"fixed",
+            top:0,left:0,width:"100%",height:"100%",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            background:"rgba(0,0,0,0.7)",
+            fontSize:"40px"
+          }}>
             {overlay === "win" ? "🏆 WIN!" : "😢 LOST"}
           </div>
         )}
-
-        {particles.map(p => (
-          <div
-            key={p.id}
-            className="confetti"
-            style={{ left: `${p.left}%`, animationDelay: `${p.delay}s` }}
-          >
-            🌸
-          </div>
-        ))}
       </div>
     </>
   );
