@@ -51,8 +51,7 @@ export default function BottleGame() {
   const getResult = (playerChoice) => {
     const outcome = Math.random() < 0.5 ? "HEAD" : "BOTTOM";
     const botChoice = playerChoice === "HEAD" ? "BOTTOM" : "HEAD";
-
-    let winner = outcome === playerChoice ? "USER" : "BOT";
+    const winner = outcome === playerChoice ? "USER" : "BOT";
 
     return { outcome, winner, botChoice };
   };
@@ -68,6 +67,8 @@ export default function BottleGame() {
     setBotScore(0);
     setRound(1);
     setResult("");
+    setPlayerChoice(null);
+    setBotChoice(null);
   };
 
   const spin = () => {
@@ -104,33 +105,30 @@ export default function BottleGame() {
       let newBotScore = botScore;
 
       if (winner === "USER") {
-        newPlayerScore++;
+        newPlayerScore += 1;
+        setPlayerScore(newPlayerScore);
         playSound("win");
         setResult("🎉 You Win Round!");
       } else {
-        newBotScore++;
+        newBotScore += 1;
+        setBotScore(newBotScore);
         playSound("lose");
         setResult("🤖 Bot Wins Round!");
       }
 
-      setPlayerScore(newPlayerScore);
-      setBotScore(newBotScore);
-
-      // 🏆 Check final winner
-      if (newPlayerScore === 2 || newBotScore === 2) {
-        setTimeout(() => {
-          if (newPlayerScore === 2) {
-            setResult("🏆 You Won The Match!");
-          } else {
-            setResult("💀 Bot Won The Match!");
-          }
-        }, 300);
-      } else {
-        setRound((r) => r + 1);
-      }
-
       setPhase("result");
       setSpinning(false);
+
+      // 🏆 Match logic
+      setTimeout(() => {
+        if (newPlayerScore === 2) {
+          setResult("🏆 You Won The Match!");
+        } else if (newBotScore === 2) {
+          setResult("💀 Bot Won The Match!");
+        } else {
+          setRound((r) => r + 1);
+        }
+      }, 300);
     }, 2200);
   };
 
@@ -159,7 +157,6 @@ export default function BottleGame() {
           100% {background-position: 0% 50%;}
         }
 
-        /* ✨ floating glow circles */
         .bg-glow {
           position: absolute;
           width: 400px;
@@ -246,6 +243,7 @@ export default function BottleGame() {
           >
             Head
           </button>
+
           <button
             className={`bottom ${playerChoice === "BOTTOM" ? "active" : ""}`}
             onClick={() => choose("BOTTOM")}
@@ -256,7 +254,10 @@ export default function BottleGame() {
 
         <div
           className={`bottle ${phase === "result" ? "bounce" : ""}`}
-          style={{ transform: `rotate(${rotation}deg)`, "--rot": `${rotation}deg` }}
+          style={{
+            transform: `rotate(${rotation}deg)`,
+            "--rot": `${rotation}deg`
+          }}
         >
           🍾
         </div>
