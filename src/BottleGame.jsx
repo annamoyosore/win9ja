@@ -1,20 +1,16 @@
 import { useState, useRef } from "react";
 
-export default function WheelSpinGame() {
+export default function WheelBattle() {
+  const segments = ["💰 Win", "❌ Lose", "🎁 Bonus", "⭐ Lucky", "🔥 Jackpot"];
+
+  const [selected, setSelected] = useState(null);
+  const [botChoice, setBotChoice] = useState(null);
+
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState("");
 
   const audioCtxRef = useRef(null);
-
-  const segments = [
-    "💰 Win",
-    "❌ Lose",
-    "🎁 Bonus",
-    "💀 Penalty",
-    "⭐ Lucky",
-    "🔥 Jackpot"
-  ];
 
   const segmentAngle = 360 / segments.length;
 
@@ -35,43 +31,64 @@ export default function WheelSpinGame() {
     if (type === "spin") osc.frequency.value = 300;
     if (type === "tick") osc.frequency.value = 800;
     if (type === "win") osc.frequency.value = 600;
+    if (type === "lose") osc.frequency.value = 150;
 
     gain.gain.value = 0.08;
     osc.start();
-    setTimeout(() => osc.stop(), 100);
+    setTimeout(() => osc.stop(), 120);
   };
 
-  const spinWheel = () => {
+  const choose = (seg) => {
     if (spinning) return;
+
+    setSelected(seg);
+    setResult("");
+
+    // 🤖 bot picks different or random
+    const randomBot =
+      segments[Math.floor(Math.random() * segments.length)];
+    setBotChoice(randomBot);
+  };
+
+  const spin = () => {
+    if (spinning) return;
+
+    if (!selected) {
+      setResult("⚠️ Select a segment first");
+      return;
+    }
 
     setSpinning(true);
     setResult("");
 
     playSound("spin");
 
-    const randomIndex = Math.floor(Math.random() * segments.length);
+    const winningIndex = Math.floor(Math.random() * segments.length);
+    const landed = segments[winningIndex];
 
-    // 🎯 Calculate stop angle
     const stopAngle =
-      360 - randomIndex * segmentAngle - segmentAngle / 2;
+      360 - winningIndex * segmentAngle - segmentAngle / 2;
 
     const spinBase = Math.floor(Math.random() * 720) + 1440;
     const finalRotation = rotation + spinBase + stopAngle;
 
     setRotation(finalRotation);
 
-    // 🔔 ticking effect
-    let tickInterval = setInterval(() => {
-      playSound("tick");
-    }, 120);
+    const tick = setInterval(() => playSound("tick"), 120);
 
     setTimeout(() => {
-      clearInterval(tickInterval);
+      clearInterval(tick);
 
-      const landed = segments[randomIndex];
-      setResult(`🎯 ${landed}`);
+      if (landed === selected) {
+        setResult("🎉 You Win!");
+        playSound("win");
+      } else if (landed === botChoice) {
+        setResult("🤖 Bot Wins!");
+        playSound("lose");
+      } else {
+        setResult(`⚖️ Landed on ${landed}`);
+      }
 
-      playSound("win");
       setSpinning(false);
     }, 3000);
   };
@@ -85,9 +102,28 @@ export default function WheelSpinGame() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          font-family: Arial;
           color: white;
-          background: radial-gradient(circle at top, #1f1c2c, #928dab);
+          font-family: Arial;
+          background: radial-gradient(circle, #1f1c2c, #928dab);
+        }
+
+        .choices {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .choice {
+          padding: 10px 14px;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.1);
+          cursor: pointer;
+        }
+
+        .active {
+          background: #ff9800;
+          transform: scale(1.1);
         }
 
         .wheel-container {
@@ -103,15 +139,13 @@ export default function WheelSpinGame() {
           left: 50%;
           transform: translateX(-50%);
           font-size: 30px;
-          z-index: 5;
         }
 
         .wheel {
           width: 100%;
           height: 100%;
           border-radius: 50%;
-          border: 6px solid white;
-          position: relative;
+          border: 5px solid white;
           overflow: hidden;
           transition: transform 3s cubic-bezier(0.25,1,0.5,1);
         }
@@ -127,7 +161,6 @@ export default function WheelSpinGame() {
           align-items: center;
           justify-content: center;
           font-size: 12px;
-          text-align: center;
         }
 
         button {
@@ -135,18 +168,38 @@ export default function WheelSpinGame() {
           border-radius: 25px;
           border: none;
           cursor: pointer;
-          font-weight: bold;
         }
 
         .result {
-          margin-top: 20px;
-          font-size: 22px;
+          margin-top: 15px;
+          font-size: 20px;
         }
       `}</style>
 
       <div className="container">
-        <h2>🎡 Wheel Spin Game</h2>
+        <h2>🎡 Wheel Battle (vs Bot)</h2>
 
+        {/* choices */}
+        <div className="choices">
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              className={`choice ${selected === seg ? "active" : ""}`}
+              onClick={() => choose(seg)}
+            >
+              {seg}
+            </div>
+          ))}
+        </div>
+
+        {/* info */}
+        {selected && (
+          <p>
+            🧑 You: {selected} | 🤖 Bot: {botChoice || "..."}
+          </p>
+        )}
+
+        {/* wheel */}
         <div className="wheel-container">
           <div className="pointer">🔻</div>
 
@@ -162,7 +215,7 @@ export default function WheelSpinGame() {
                   transform: `rotate(${i * segmentAngle}deg) skewY(${
                     90 - segmentAngle
                   }deg)`,
-                  background: `hsl(${i * 60}, 70%, 50%)`
+                  background: `hsl(${i * 70}, 70%, 50%)`
                 }}
               >
                 <div style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
@@ -173,8 +226,8 @@ export default function WheelSpinGame() {
           </div>
         </div>
 
-        <button onClick={spinWheel} disabled={spinning}>
-          {spinning ? "Spinning..." : "Spin Wheel"}
+        <button onClick={spin} disabled={spinning}>
+          {spinning ? "Spinning..." : "Spin"}
         </button>
 
         <div className="result">{result}</div>
