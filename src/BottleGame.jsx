@@ -9,7 +9,7 @@ export default function CasinoWheel() {
     "➖ -50%",
     "x1",
     "🔥 x10",
-    "💎 x30"
+    "💎 JACKPOT"
   ];
 
   const stakes = [50, 100, 200, 500];
@@ -17,17 +17,18 @@ export default function CasinoWheel() {
   const [stake, setStake] = useState(null);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
-  const [total, setTotal] = useState(0);
   const [won, setWon] = useState(0);
+  const [total, setTotal] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [overlay, setOverlay] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [freeSpins, setFreeSpins] = useState(0);
+  const [particles, setParticles] = useState([]);
+  const [glow, setGlow] = useState(false);
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
 
-  // 🎯 PROBABILITY
   const pool = [
     { type: "LOSE", weight: 0.39 },
     { type: "HALF", weight: 0.12 },
@@ -38,13 +39,29 @@ export default function CasinoWheel() {
     { type: "X10", weight: 0.01 }
   ];
 
-  // 🔊 SOUND
+  const getResult = () => {
+    let r = Math.random(), sum = 0;
+    for (let p of pool) {
+      sum += p.weight;
+      if (r <= sum) return p.type;
+    }
+  };
+
+  const spawnConfetti = () => {
+    const items = Array.from({ length: 30 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.5
+    }));
+    setParticles(items);
+    setTimeout(() => setParticles([]), 2500);
+  };
+
   const playSound = (type) => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext ||
         window.webkitAudioContext)();
     }
-
     const ctx = audioCtxRef.current;
 
     const tone = (f, d) => {
@@ -67,27 +84,19 @@ export default function CasinoWheel() {
     );
   };
 
-  const getResult = () => {
-    let r = Math.random(), sum = 0;
-    for (let p of pool) {
-      sum += p.weight;
-      if (r <= sum) return p.type;
-    }
-  };
-
-  const startResetCountdown = () => {
-    let time = 5;
-    setCountdown(time);
-
-    const interval = setInterval(() => {
-      time--;
-      setCountdown(time);
-      if (time <= 0) {
-        clearInterval(interval);
+  const startReset = () => {
+    let t = 5;
+    setCountdown(t);
+    const i = setInterval(() => {
+      t--;
+      setCountdown(t);
+      if (t <= 0) {
+        clearInterval(i);
         setRotation(0);
         setResult("");
         setOverlay(null);
         setCountdown(null);
+        setGlow(false);
       }
     }, 1000);
   };
@@ -96,7 +105,7 @@ export default function CasinoWheel() {
     if (spinning) return;
 
     if (!stake && freeSpins <= 0) {
-      setResult("⚠️ Select stake first");
+      setResult("⚠️ Select stake");
       return;
     }
 
@@ -117,15 +126,23 @@ export default function CasinoWheel() {
       X10: [6]
     };
 
-    const index =
+    let index =
       indexMap[outcome][Math.floor(Math.random() * indexMap[outcome].length)];
 
+    // 🎡 Near jackpot effect
+    const jackpotIndex = 7;
+    if (Math.random() < 0.4 && outcome !== "X10") {
+      index = jackpotIndex - 1;
+    }
+
     const stopAngle = 360 - (index * segmentAngle + segmentAngle / 2);
-    const finalRotation = 1440 + stopAngle;
+    const finalRotation = rotation + 1440 + stopAngle;
 
     setRotation(finalRotation);
 
     setTimeout(() => {
+      setGlow(true); // ✨ pointer glow
+
       let text = "";
       let win = 0;
 
@@ -133,41 +150,39 @@ export default function CasinoWheel() {
         setTotal((t) => t - stake);
         playSound("lose");
         setOverlay("lose");
-        text = "❌ You Lost";
+        text = `❌ Lost ₦${stake}`;
 
       } else if (outcome === "HALF") {
-        setTotal((t) => t - stake / 2);
+        const loss = stake / 2;
+        setTotal((t) => t - loss);
         playSound("lose");
         setOverlay("lose");
-        text = "➖ Lost Half";
+        text = `➖ Lost ₦${loss}`;
 
       } else if (outcome === "X1") {
-        playSound("win");
         text = "⚖️ No Gain";
+        playSound("win");
 
       } else if (outcome === "FREE") {
         setFreeSpins((f) => f + 1);
-        playSound("win");
         text = "🎁 Free Spin!";
+        playSound("win");
 
       } else {
         const mult = parseInt(outcome.replace("X", ""));
         win = stake * mult;
-        setTotal((t) => t + win);
         setWon(win);
+        setTotal((t) => t + win);
         playSound("win");
+        spawnConfetti();
         setOverlay("win");
-        text = `🎉 ${outcome}`;
+        text = `🎉 Won ₦${win}`;
       }
 
       setResult(text);
       setSpinning(false);
 
-      if (freeSpins > 0 && outcome !== "FREE") {
-        setFreeSpins((f) => f - 1);
-      }
-
-      startResetCountdown();
+      startReset();
     }, 3000);
   };
 
@@ -175,98 +190,101 @@ export default function CasinoWheel() {
     <>
       <style>{`
         .container {
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: radial-gradient(circle at top, #1a1a2e, #000);
-          color: white;
-          font-family: Arial;
-        }
-
-        h2 {
-          color: gold;
-          text-shadow: 0 0 10px gold;
-        }
-
-        .stake {
-          display: flex;
-          gap: 10px;
+          height:100vh;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          background: radial-gradient(circle,#0f2027,#000);
+          color:white;
         }
 
         .stake button {
-          padding: 10px 16px;
-          border-radius: 12px;
-          border: none;
-          background: #333;
-          color: white;
-          font-weight: bold;
+          margin:5px;
+          padding:10px;
+          border:none;
+          border-radius:10px;
+          background:#333;
+          color:white;
         }
 
         .active {
-          background: purple;
-          transform: scale(1.1);
-          box-shadow: 0 0 10px purple;
+          background:purple;
+          box-shadow:0 0 10px purple;
         }
 
         .wheel-container {
-          position: relative;
-          width: 260px;
-          height: 260px;
-          margin: 20px;
+          position:relative;
+          width:260px;
+          height:260px;
         }
 
         .pointer {
-          position: absolute;
-          top: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          font-size: 28px;
+          position:absolute;
+          top:-20px;
+          left:50%;
+          transform:translateX(-50%);
+          font-size:24px;
+          transition:0.3s;
+        }
+
+        .glow {
+          text-shadow:0 0 15px gold,0 0 25px gold;
+          transform:translateX(-50%) scale(1.2);
         }
 
         .wheel {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          border: 6px solid gold;
-          transition: transform 3s cubic-bezier(0.25,1,0.5,1);
-          background: conic-gradient(
-            #ff3b3b 0deg 45deg,
-            #ffd93b 45deg 90deg,
-            #ff3b3b 90deg 135deg,
-            #3bff57 135deg 180deg,
-            #3bd1ff 180deg 225deg,
-            #00c853 225deg 270deg,
-            #ff9800 270deg 315deg,
-            gold 315deg 360deg
-          );
+          width:100%;
+          height:100%;
+          border-radius:50%;
+          border:5px solid gold;
+          position:relative;
+          transition:transform 3s cubic-bezier(0.25,1,0.5,1);
         }
 
-        .box {
-          margin-top: 10px;
-          padding: 10px;
-          border: 2px solid gold;
-          border-radius: 10px;
-          background: rgba(255,215,0,0.1);
+        .seg {
+          position:absolute;
+          width:50%;
+          height:50%;
+          top:50%;
+          left:50%;
+          transform-origin:0% 0%;
+          display:flex;
+          justify-content:center;
+          align-items:center;
+          font-size:12px;
+        }
+
+        .jackpot {
+          color:gold;
+          text-shadow:0 0 10px gold;
+        }
+
+        .confetti {
+          position:fixed;
+          top:-20px;
+          font-size:20px;
+          animation:fall 2.5s linear forwards;
+        }
+
+        @keyframes fall {
+          to {
+            transform:translateY(110vh) rotate(360deg);
+            opacity:0;
+          }
         }
 
         .overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(0,0,0,0.7);
-          font-size: 40px;
-        }
-
-        .countdown {
-          margin-top: 10px;
-          color: #aaa;
+          position:fixed;
+          top:0;
+          left:0;
+          width:100%;
+          height:100%;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:rgba(0,0,0,0.7);
+          font-size:40px;
         }
       `}</style>
 
@@ -285,33 +303,54 @@ export default function CasinoWheel() {
           ))}
         </div>
 
-        <p>🎟 Free Spins: {freeSpins}</p>
-
         <div className="wheel-container">
-          <div className="pointer">🔻</div>
-          <div className="wheel" style={{ transform: `rotate(${rotation}deg)` }} />
+          <div className={`pointer ${glow ? "glow" : ""}`}>🔻</div>
+
+          <div
+            className="wheel"
+            style={{ transform: `rotate(${rotation}deg)` }}
+          >
+            {segments.map((seg, i) => (
+              <div
+                key={i}
+                className={`seg ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
+                style={{
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`
+                }}
+              >
+                <span style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
+                  {seg}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <button onClick={spin}>
           {spinning ? "Spinning..." : "🎡 Spin"}
         </button>
 
-        <div className="box">
-          💰 Total: ₦{total} <br />
-          🏆 Won: ₦{won}
-        </div>
-
+        <p>💰 Total: ₦{total}</p>
+        <p>🏆 Won: ₦{won}</p>
         <p>{result}</p>
 
-        {countdown && (
-          <p className="countdown">Resetting in {countdown}s...</p>
-        )}
+        {countdown && <p>Resetting in {countdown}s...</p>}
 
         {overlay && (
           <div className="overlay">
-            {overlay === "win" ? "🏆 WIN!" : "😢 LOSE"}
+            {overlay === "win" ? "🏆 WIN!" : "😢 LOST"}
           </div>
         )}
+
+        {particles.map(p => (
+          <div
+            key={p.id}
+            className="confetti"
+            style={{ left: `${p.left}%`, animationDelay: `${p.delay}s` }}
+          >
+            🌸
+          </div>
+        ))}
       </div>
     </>
   );
