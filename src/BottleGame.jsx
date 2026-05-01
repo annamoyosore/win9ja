@@ -3,24 +3,23 @@ import { useState, useRef } from "react";
 export default function FreeSpinWheelAdvanced() {
   const segments = [
     { label: "❌ Lose", weight: 0.35 },
-    { label: "🔁 Try Again", weight: 0.2 },
+    { label: "🔁 Try", weight: 0.2 },
     { label: "x2", weight: 0.2 },
     { label: "x3", weight: 0.15 },
     { label: "x10", weight: 0.05 },
-    { label: "🎁 Free Spin", weight: 0.05 }
+    { label: "🎁 Spin", weight: 0.05 }
   ];
 
   const stakes = [50, 100, 200, 500];
 
   const [stake, setStake] = useState(100);
   const [lossPercent, setLossPercent] = useState(100);
-
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
-  const [totalWon, setTotalWon] = useState(0);
+  const [total, setTotal] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [freeSpins, setFreeSpins] = useState(1);
-  const [showFlowers, setShowFlowers] = useState(false);
+  const [flowers, setFlowers] = useState(false);
 
   const audioCtxRef = useRef(null);
   const segmentAngle = 360 / segments.length;
@@ -45,9 +44,9 @@ export default function FreeSpinWheelAdvanced() {
       setTimeout(() => o.stop(), d);
     };
 
-    if (type === "win") [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => tone(f, 120, 0.12), i * 120));
-    if (type === "lose") [500, 300, 150].forEach((f, i) => setTimeout(() => tone(f, 150), i * 150));
     if (type === "tick") tone(800 + Math.random() * 200, 40, 0.05);
+    if (type === "win") [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => tone(f, 120), i * 120));
+    if (type === "lose") [500, 300, 150].forEach((f, i) => setTimeout(() => tone(f, 150), i * 150));
   };
 
   const getIndex = () => {
@@ -63,8 +62,8 @@ export default function FreeSpinWheelAdvanced() {
     if (spinning || freeSpins <= 0) return;
 
     setSpinning(true);
-    setResult("");
     setFreeSpins((f) => f - 1);
+    setResult("");
 
     const index = getIndex();
     const landed = segments[index].label;
@@ -84,26 +83,26 @@ export default function FreeSpinWheelAdvanced() {
     tickLoop();
 
     setTimeout(() => {
-      let winAmount = 0;
+      let win = 0;
 
       if (landed.includes("x")) {
         const mult = parseInt(landed.replace("x", ""));
-        winAmount = stake * mult;
-        setTotalWon((t) => t + winAmount);
-        setShowFlowers(true);
+        win = stake * mult;
+        setTotal((t) => t + win);
+        setFlowers(true);
         playSound("win");
       } else if (landed === "❌ Lose") {
         const loss = stake * (lossPercent / 100);
-        setTotalWon((t) => t - loss);
+        setTotal((t) => t - loss);
         playSound("lose");
-      } else if (landed === "🎁 Free Spin" || landed === "🔁 Try Again") {
+      } else {
         setFreeSpins((f) => f + 1);
         playSound("win");
       }
 
-      setResult(`${landed} ${winAmount ? `(+${winAmount})` : ""}`);
+      setResult(`${landed} ${win ? `(+₦${win})` : ""}`);
 
-      setTimeout(() => setShowFlowers(false), 1500);
+      setTimeout(() => setFlowers(false), 1500);
       setSpinning(false);
     }, 3000);
   };
@@ -119,55 +118,69 @@ export default function FreeSpinWheelAdvanced() {
           justify-content: center;
           color: white;
           background: radial-gradient(circle, #1f1c2c, #928dab);
-          font-family: Arial;
+        }
+
+        .wheel-container {
+          position: relative;
+          width: 260px;
+          height: 260px;
+        }
+
+        .pointer {
+          position: absolute;
+          top: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 28px;
         }
 
         .wheel {
-          width: 260px;
-          height: 260px;
+          width: 100%;
+          height: 100%;
           border-radius: 50%;
           border: 6px solid white;
-          margin: 20px;
+          overflow: hidden;
           transition: transform 3s cubic-bezier(0.25,1,0.5,1);
         }
 
-        .stake-buttons span {
+        .segment {
+          position: absolute;
+          width: 50%;
+          height: 50%;
+          top: 50%;
+          left: 50%;
+          transform-origin: 0% 0%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+        }
+
+        .stake span {
           margin: 5px;
-          padding: 8px 12px;
+          padding: 8px;
           background: #444;
-          border-radius: 10px;
           cursor: pointer;
         }
 
-        .active {
-          background: #ff9800;
-        }
-
-        button {
-          padding: 10px 20px;
-          border-radius: 20px;
-          border: none;
-          background: #ff9800;
-          color: white;
-          cursor: pointer;
-        }
+        .active { background: orange; }
 
         .flowers {
           position: absolute;
-          font-size: 24px;
           animation: float 1.5s ease forwards;
         }
 
         @keyframes float {
-          from { transform: translateY(0); opacity: 1; }
-          to { transform: translateY(-150px); opacity: 0; }
+          from { transform: translateY(0); opacity:1; }
+          to { transform: translateY(-120px); opacity:0; }
         }
       `}</style>
 
       <div className="container">
-        <h2>🎡 Advanced Spin</h2>
+        <h2>🎡 Spin Game</h2>
 
-        <div className="stake-buttons">
+        {/* stake */}
+        <div className="stake">
           {stakes.map((s) => (
             <span
               key={s}
@@ -179,31 +192,41 @@ export default function FreeSpinWheelAdvanced() {
           ))}
         </div>
 
-        <p>Loss %: 
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={lossPercent}
-            onChange={(e) => setLossPercent(Number(e.target.value))}
-          /> {lossPercent}%
-        </p>
+        <p>Total: ₦{total}</p>
+        <p>Spins: {freeSpins}</p>
 
-        <p>🎟 Spins: {freeSpins}</p>
-        <p>💰 Total: ₦{totalWon}</p>
+        {/* wheel */}
+        <div className="wheel-container">
+          <div className="pointer">🔻</div>
 
-        <div
-          className="wheel"
-          style={{ transform: `rotate(${rotation}deg)` }}
-        />
+          <div
+            className="wheel"
+            style={{ transform: `rotate(${rotation}deg)` }}
+          >
+            {segments.map((seg, i) => (
+              <div
+                key={i}
+                className="segment"
+                style={{
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
+                  background: `hsl(${i * 60},70%,50%)`
+                }}
+              >
+                <div style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
+                  {seg.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        <button onClick={spin} disabled={spinning || freeSpins <= 0}>
+        <button onClick={spin} disabled={spinning}>
           Spin
         </button>
 
         <p>{result}</p>
 
-        {showFlowers && (
+        {flowers && (
           <>
             <div className="flowers">🌸</div>
             <div className="flowers" style={{ left: "40%" }}>🌺</div>
