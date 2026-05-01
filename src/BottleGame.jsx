@@ -9,11 +9,10 @@ export default function CasinoWheel() {
     "➖ -50%",
     "x1",
     "🔥 x10",
-    "💎 JACKPOT"
+    "💎 JACKPOT ×30"
   ];
 
   const segmentAngle = 360 / segments.length;
-
   const stakes = [50, 100, 200, 500];
 
   const [stake, setStake] = useState(null);
@@ -166,14 +165,13 @@ export default function CasinoWheel() {
         setTotal((t) => t + win);
         setWon(win);
         playSound("win");
-        spawnFlowers(); // 🌸 trigger
+        spawnFlowers();
         setOverlay("win");
         text = `🎉 Won ₦${win}`;
       }
 
       setResult(text);
       setSpinning(false);
-
       startResetCountdown();
     }, 3000);
   };
@@ -183,12 +181,12 @@ export default function CasinoWheel() {
       <style>{`
         .container {
           height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: radial-gradient(circle, #1a1a2e, #000);
-          color: white;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          background: radial-gradient(circle,#1a1a2e,#000);
+          color:white;
         }
 
         .stake button {
@@ -207,9 +205,9 @@ export default function CasinoWheel() {
         }
 
         .wheel-container {
-          position:relative;
           width:200px;
           height:200px;
+          position:relative;
           margin:15px;
         }
 
@@ -240,15 +238,20 @@ export default function CasinoWheel() {
           display:flex;
           align-items:center;
           justify-content:center;
-          font-size:10px;
-          font-weight:bold;
+        }
+
+        .label {
+          transform: rotate(90deg);
+          font-size:13px;
+          font-weight:900;
           text-align:center;
-          padding:2px;
+          line-height:1.2;
         }
 
         .jackpot {
           color:gold;
-          text-shadow:0 0 8px gold;
+          text-shadow:0 0 10px gold;
+          font-size:14px;
         }
 
         .confetti {
@@ -293,15 +296,17 @@ export default function CasinoWheel() {
             {segments.map((seg, i) => (
               <div
                 key={i}
-                className={`segment ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
+                className="segment"
                 style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
-                  background: `hsl(${i * 45},70%,50%)`
+                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`
                 }}
               >
-                <span style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
+                <div
+                  className={`label ${seg.includes("JACKPOT") ? "jackpot" : ""}`}
+                  style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}
+                >
                   {seg}
-                </span>
+                </div>
               </div>
             ))}
           </div>
