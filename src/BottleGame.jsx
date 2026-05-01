@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 
-export default function FreeSpinWheel() {
+export default function FreeSpinWheelAdvanced() {
   const segments = [
     { label: "❌ Lose", weight: 0.35 },
     { label: "🔁 Try Again", weight: 0.2 },
@@ -10,16 +10,22 @@ export default function FreeSpinWheel() {
     { label: "🎁 Free Spin", weight: 0.05 }
   ];
 
+  const stakes = [50, 100, 200, 500];
+
+  const [stake, setStake] = useState(100);
+  const [lossPercent, setLossPercent] = useState(100);
+
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState("");
+  const [totalWon, setTotalWon] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [freeSpins, setFreeSpins] = useState(1);
+  const [showFlowers, setShowFlowers] = useState(false);
 
   const audioCtxRef = useRef(null);
-
   const segmentAngle = 360 / segments.length;
 
-  // 🔊 SOUND SYSTEM
+  // 🔊 SOUND
   const playSound = (type) => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext ||
@@ -28,58 +34,27 @@ export default function FreeSpinWheel() {
 
     const ctx = audioCtxRef.current;
 
-    const tone = (freq, duration, volume = 0.1) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.frequency.value = freq;
-      gain.gain.value = volume;
-
-      osc.start();
-      setTimeout(() => osc.stop(), duration);
+    const tone = (f, d, v = 0.1) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.frequency.value = f;
+      g.gain.value = v;
+      o.start();
+      setTimeout(() => o.stop(), d);
     };
 
-    // ⏳ suspense build
-    if (type === "suspense") {
-      let steps = [200, 230, 260, 300, 340, 380];
-      steps.forEach((f, i) => {
-        setTimeout(() => tone(f, 120, 0.05), i * 120);
-      });
-    }
-
-    // 🎡 tick
-    if (type === "tick") {
-      tone(800 + Math.random() * 200, 40, 0.05);
-    }
-
-    // 🎉 win
-    if (type === "win") {
-      let notes = [400, 550, 700, 900, 1100];
-      notes.forEach((f, i) => {
-        setTimeout(() => tone(f, 140, 0.12), i * 140);
-      });
-    }
-
-    // ❌ lose
-    if (type === "lose") {
-      let notes = [500, 350, 200];
-      notes.forEach((f, i) => {
-        setTimeout(() => tone(f, 180, 0.1), i * 180);
-      });
-    }
+    if (type === "win") [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => tone(f, 120, 0.12), i * 120));
+    if (type === "lose") [500, 300, 150].forEach((f, i) => setTimeout(() => tone(f, 150), i * 150));
+    if (type === "tick") tone(800 + Math.random() * 200, 40, 0.05);
   };
 
-  // 🎯 weighted result
   const getIndex = () => {
-    let rand = Math.random();
-    let sum = 0;
-
+    let r = Math.random(), sum = 0;
     for (let i = 0; i < segments.length; i++) {
       sum += segments[i].weight;
-      if (rand <= sum) return i;
+      if (r <= sum) return i;
     }
     return 0;
   };
@@ -91,50 +66,44 @@ export default function FreeSpinWheel() {
     setResult("");
     setFreeSpins((f) => f - 1);
 
-    playSound("suspense");
-
     const index = getIndex();
     const landed = segments[index].label;
 
-    const stopAngle =
-      360 - index * segmentAngle - segmentAngle / 2;
-
+    const stopAngle = 360 - index * segmentAngle - segmentAngle / 2;
     const spinBase = Math.floor(Math.random() * 720) + 1440;
-    const finalRotation = rotation + spinBase + stopAngle;
 
-    setRotation(finalRotation);
+    setRotation((r) => r + spinBase + stopAngle);
 
-    // 🎡 dynamic ticking
     let tickSpeed = 50;
-
     const tickLoop = () => {
       if (!spinning) return;
-
       playSound("tick");
       tickSpeed += 12;
-
-      if (tickSpeed < 220) {
-        setTimeout(tickLoop, tickSpeed);
-      }
+      if (tickSpeed < 220) setTimeout(tickLoop, tickSpeed);
     };
-
     tickLoop();
 
     setTimeout(() => {
-      if (landed === "🎁 Free Spin" || landed === "🔁 Try Again") {
+      let winAmount = 0;
+
+      if (landed.includes("x")) {
+        const mult = parseInt(landed.replace("x", ""));
+        winAmount = stake * mult;
+        setTotalWon((t) => t + winAmount);
+        setShowFlowers(true);
+        playSound("win");
+      } else if (landed === "❌ Lose") {
+        const loss = stake * (lossPercent / 100);
+        setTotalWon((t) => t - loss);
+        playSound("lose");
+      } else if (landed === "🎁 Free Spin" || landed === "🔁 Try Again") {
         setFreeSpins((f) => f + 1);
+        playSound("win");
       }
 
-      setResult(`🎯 ${landed}`);
+      setResult(`${landed} ${winAmount ? `(+${winAmount})` : ""}`);
 
-      setTimeout(() => {
-        if (landed.includes("x") || landed.includes("Spin") || landed.includes("Try")) {
-          playSound("win");
-        } else {
-          playSound("lose");
-        }
-      }, 300);
-
+      setTimeout(() => setShowFlowers(false), 1500);
       setSpinning(false);
     }, 3000);
   };
@@ -149,99 +118,98 @@ export default function FreeSpinWheel() {
           align-items: center;
           justify-content: center;
           color: white;
-          font-family: Arial;
           background: radial-gradient(circle, #1f1c2c, #928dab);
-        }
-
-        .wheel-container {
-          position: relative;
-          width: 260px;
-          height: 260px;
-          margin: 20px;
-        }
-
-        .pointer {
-          position: absolute;
-          top: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          font-size: 28px;
-          z-index: 5;
+          font-family: Arial;
         }
 
         .wheel {
-          width: 100%;
-          height: 100%;
+          width: 260px;
+          height: 260px;
           border-radius: 50%;
           border: 6px solid white;
-          overflow: hidden;
+          margin: 20px;
           transition: transform 3s cubic-bezier(0.25,1,0.5,1);
         }
 
-        .segment {
-          position: absolute;
-          width: 50%;
-          height: 50%;
-          top: 50%;
-          left: 50%;
-          transform-origin: 0% 0%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          color: white;
+        .stake-buttons span {
+          margin: 5px;
+          padding: 8px 12px;
+          background: #444;
+          border-radius: 10px;
+          cursor: pointer;
+        }
+
+        .active {
+          background: #ff9800;
         }
 
         button {
-          padding: 12px 25px;
-          border-radius: 25px;
+          padding: 10px 20px;
+          border-radius: 20px;
           border: none;
-          cursor: pointer;
           background: #ff9800;
           color: white;
-          font-weight: bold;
+          cursor: pointer;
         }
 
-        .result {
-          margin-top: 15px;
-          font-size: 20px;
+        .flowers {
+          position: absolute;
+          font-size: 24px;
+          animation: float 1.5s ease forwards;
+        }
+
+        @keyframes float {
+          from { transform: translateY(0); opacity: 1; }
+          to { transform: translateY(-150px); opacity: 0; }
         }
       `}</style>
 
       <div className="container">
-        <h2>🎡 Free Spin Wheel</h2>
+        <h2>🎡 Advanced Spin</h2>
 
-        <p>🎟 Spins: {freeSpins}</p>
-
-        <div className="wheel-container">
-          <div className="pointer">🔻</div>
-
-          <div
-            className="wheel"
-            style={{ transform: `rotate(${rotation}deg)` }}
-          >
-            {segments.map((seg, i) => (
-              <div
-                key={i}
-                className="segment"
-                style={{
-                  transform: `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`,
-                  background: `hsl(${i * 60}, 70%, 50%)`
-                }}
-              >
-                <div style={{ transform: `skewY(-${90 - segmentAngle}deg)` }}>
-                  {seg.label}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="stake-buttons">
+          {stakes.map((s) => (
+            <span
+              key={s}
+              className={stake === s ? "active" : ""}
+              onClick={() => setStake(s)}
+            >
+              ₦{s}
+            </span>
+          ))}
         </div>
 
+        <p>Loss %: 
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={lossPercent}
+            onChange={(e) => setLossPercent(Number(e.target.value))}
+          /> {lossPercent}%
+        </p>
+
+        <p>🎟 Spins: {freeSpins}</p>
+        <p>💰 Total: ₦{totalWon}</p>
+
+        <div
+          className="wheel"
+          style={{ transform: `rotate(${rotation}deg)` }}
+        />
+
         <button onClick={spin} disabled={spinning || freeSpins <= 0}>
-          {spinning ? "Spinning..." : "Spin"}
+          Spin
         </button>
 
-        <div className="result">{result}</div>
+        <p>{result}</p>
+
+        {showFlowers && (
+          <>
+            <div className="flowers">🌸</div>
+            <div className="flowers" style={{ left: "40%" }}>🌺</div>
+            <div className="flowers" style={{ left: "60%" }}>🌼</div>
+          </>
+        )}
       </div>
     </>
   );
