@@ -1,67 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  databases,
-  DATABASE_ID,
-  WALLET_COLLECTION,
-  CASINO_COLLECTION,
-  account,
-  ID,
-  Query
-} from "../lib/appwrite";
 
-const ADMIN_WALLET_ID = "69f2482600125d496354";
+export default function CrashGameDemo() {
 
-export default function CrashGame() {
-
-  const [wallet, setWallet] = useState(null);
-  const [stake, setStake] = useState("");
   const [multiplier, setMultiplier] = useState(1);
   const [running, setRunning] = useState(false);
   const [crashed, setCrashed] = useState(false);
   const [cashout, setCashout] = useState(false);
+  const [stake, setStake] = useState("");
   const [result, setResult] = useState("");
-  const [profit, setProfit] = useState(0);
 
   const intervalRef = useRef(null);
   const crashPointRef = useRef(0);
-  const betRef = useRef(0);
 
-  useEffect(() => {
-    loadWallet();
-  }, []);
-
-  async function loadWallet() {
-    try {
-      const u = await account.get();
-
-      const res = await databases.listDocuments(
-        DATABASE_ID,
-        WALLET_COLLECTION,
-        [Query.equal("userId", u.$id)]
-      );
-
-      if (res.documents.length) {
-        setWallet(res.documents[0]);
-      }
-    } catch (err) {
-      console.log("wallet load failed (test mode safe)");
-    }
+  // 🎲 generate random crash point
+  function generateCrashPoint() {
+    return (Math.random() * 10 + 1.2).toFixed(2); // 1.2x - 11x
   }
 
-  function crashPoint() {
-    return (Math.random() * 15 + 1.2).toFixed(2);
-  }
+  const startGame = () => {
 
-  const startGame = async () => {
+    if (running) return;
 
     const bet = Number(stake);
-
-    if (running || !bet || bet < 50) return;
-
-    // TEST MODE: fallback wallet
-    const safeWallet = wallet || { balance: 1000 };
-
-    if (bet > safeWallet.balance) return;
+    if (!bet || bet < 1) return;
 
     setRunning(true);
     setCrashed(false);
@@ -69,32 +30,12 @@ export default function CrashGame() {
     setMultiplier(1);
     setResult("");
 
-    betRef.current = bet;
-    crashPointRef.current = parseFloat(crashPoint());
-
-    // simulate deduction (NO HARD FAIL)
-    if (wallet) {
-      try {
-        await databases.updateDocument(
-          DATABASE_ID,
-          WALLET_COLLECTION,
-          wallet.$id,
-          {
-            balance: wallet.balance - bet
-          }
-        );
-
-        setWallet(prev => ({
-          ...prev,
-          balance: prev.balance - bet
-        }));
-
-      } catch {}
-    }
+    crashPointRef.current = parseFloat(generateCrashPoint());
 
     intervalRef.current = setInterval(() => {
 
       setMultiplier(prev => {
+
         const next = +(prev + 0.05).toFixed(2);
 
         if (next >= crashPointRef.current) {
@@ -110,71 +51,35 @@ export default function CrashGame() {
   const crashGame = () => {
 
     clearInterval(intervalRef.current);
-
     setRunning(false);
     setCrashed(true);
 
     if (!cashout) {
-      setResult("💥 CRASHED - LOST");
-      return;
+      setResult("💥 CRASHED — YOU LOST");
     }
   };
 
-  const handleCashout = async () => {
+  const cashOut = () => {
 
     if (!running || cashout) return;
 
     setCashout(true);
 
-    const bet = betRef.current;
+    const bet = Number(stake);
     const win = Math.floor(bet * multiplier);
 
-    setProfit(win);
-    setResult(`🎉 CASHOUT ₦${win}`);
+    setResult(`🎉 CASHED OUT AT x${multiplier} → WIN ₦${win}`);
 
-    // update wallet only if exists
-    if (wallet) {
-      try {
-        await databases.updateDocument(
-          DATABASE_ID,
-          WALLET_COLLECTION,
-          wallet.$id,
-          {
-            balance: wallet.balance + win
-          }
-        );
-
-        setWallet(prev => ({
-          ...prev,
-          balance: prev.balance + win
-        }));
-
-      } catch {}
-    }
-
-    // optional history (won’t break game)
-    try {
-      await databases.createDocument(
-        DATABASE_ID,
-        CASINO_COLLECTION,
-        ID.unique(),
-        {
-          userId: wallet?.userId || "test-user",
-          stake: bet,
-          win,
-          type: "crash-test",
-          createdAt: new Date().toISOString()
-        }
-      );
-    } catch {}
+    clearInterval(intervalRef.current);
+    setRunning(false);
   };
 
   return (
     <div style={{ textAlign: "center", paddingTop: 100 }}>
 
-      <h2>💥 CRASH GAME (TEST MODE)</h2>
+      <h2>💥 CRASH GAME (DEMO ONLY)</h2>
 
-      <h1 style={{ fontSize: 50 }}>
+      <h1 style={{ fontSize: 60 }}>
         x{multiplier.toFixed(2)}
       </h1>
 
@@ -182,28 +87,29 @@ export default function CrashGame() {
         <h2 style={{ color: "red" }}>💥 CRASHED</h2>
       )}
 
-      <h3>💰 ₦{wallet?.balance ?? 1000}</h3>
-
       <input
         type="number"
-        placeholder="Stake"
+        placeholder="Enter stake"
         value={stake}
         onChange={e => setStake(e.target.value)}
+        style={{ padding: 10, fontSize: 16 }}
       />
 
-      <br /><br />
+      <div style={{ marginTop: 20 }}>
 
-      {!running ? (
-        <button onClick={startGame}>START</button>
-      ) : (
-        <button onClick={handleCashout}>CASH OUT</button>
-      )}
+        {!running ? (
+          <button onClick={startGame}>
+            START GAME
+          </button>
+        ) : (
+          <button onClick={cashOut}>
+            CASH OUT
+          </button>
+        )}
 
-      <h3>{result}</h3>
+      </div>
 
-      {profit > 0 && (
-        <h2>+₦{profit}</h2>
-      )}
+      <h3 style={{ marginTop: 20 }}>{result}</h3>
 
     </div>
   );
