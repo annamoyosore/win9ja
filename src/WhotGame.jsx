@@ -9,12 +9,30 @@ export default function CrashGameDemo() {
   const [stake, setStake] = useState("");
   const [result, setResult] = useState("");
 
+  const [jetY, setJetY] = useState(0);
+
   const intervalRef = useRef(null);
   const crashPointRef = useRef(0);
 
-  // 🎲 generate random crash point
+  // 🔊 SIMPLE SOUND ENGINE (no files needed)
+  const beep = (freq = 200, time = 120) => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.frequency.value = freq;
+      osc.type = "sine";
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      setTimeout(() => osc.stop(), time);
+    } catch {}
+  };
+
   function generateCrashPoint() {
-    return (Math.random() * 10 + 1.2).toFixed(2); // 1.2x - 11x
+    return (Math.random() * 10 + 1.5).toFixed(2);
   }
 
   const startGame = () => {
@@ -28,15 +46,21 @@ export default function CrashGameDemo() {
     setCrashed(false);
     setCashout(false);
     setMultiplier(1);
+    setJetY(0);
     setResult("");
 
     crashPointRef.current = parseFloat(generateCrashPoint());
+
+    beep(300); // start sound
 
     intervalRef.current = setInterval(() => {
 
       setMultiplier(prev => {
 
         const next = +(prev + 0.05).toFixed(2);
+
+        // ✈️ move jet upward
+        setJetY(jet => jet - 6);
 
         if (next >= crashPointRef.current) {
           crashGame();
@@ -45,7 +69,7 @@ export default function CrashGameDemo() {
         return next;
       });
 
-    }, 100);
+    }, 120);
   };
 
   const crashGame = () => {
@@ -54,8 +78,10 @@ export default function CrashGameDemo() {
     setRunning(false);
     setCrashed(true);
 
+    beep(120, 300); // crash sound
+
     if (!cashout) {
-      setResult("💥 CRASHED — YOU LOST");
+      setResult("💥 CRASHED — LOST");
     }
   };
 
@@ -68,48 +94,101 @@ export default function CrashGameDemo() {
     const bet = Number(stake);
     const win = Math.floor(bet * multiplier);
 
-    setResult(`🎉 CASHED OUT AT x${multiplier} → WIN ₦${win}`);
+    setResult(`🎉 CASHOUT x${multiplier} → ₦${win}`);
+
+    beep(600); // win sound
 
     clearInterval(intervalRef.current);
     setRunning(false);
   };
 
   return (
-    <div style={{ textAlign: "center", paddingTop: 100 }}>
+    <div style={{
+      textAlign: "center",
+      paddingTop: 60,
+      background: "#050816",
+      height: "100vh",
+      color: "white",
+      overflow: "hidden"
+    }}>
 
-      <h2>💥 CRASH GAME (DEMO ONLY)</h2>
+      <h2>💥 CRASH GAME DEMO</h2>
 
-      <h1 style={{ fontSize: 60 }}>
+      {/* MULTIPLIER */}
+      <h1 style={{
+        fontSize: 60,
+        transition: "0.2s"
+      }}>
         x{multiplier.toFixed(2)}
       </h1>
 
+      {/* CRASH TEXT */}
       {crashed && !cashout && (
-        <h2 style={{ color: "red" }}>💥 CRASHED</h2>
+        <h2 style={{ color: "red", animation: "shake 0.3s" }}>
+          💥 CRASHED
+        </h2>
       )}
 
+      {/* ✈️ JET ANIMATION */}
+      <div style={{
+        position: "relative",
+        height: 200,
+        marginTop: 20
+      }}>
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: `translate(-50%, ${jetY}px)`,
+            fontSize: 60,
+            transition: "transform 0.1s linear"
+          }}
+        >
+          ✈️
+        </div>
+      </div>
+
+      {/* INPUT */}
       <input
         type="number"
-        placeholder="Enter stake"
+        placeholder="Stake"
         value={stake}
         onChange={e => setStake(e.target.value)}
-        style={{ padding: 10, fontSize: 16 }}
+        style={{
+          padding: 10,
+          fontSize: 16,
+          borderRadius: 6
+        }}
       />
 
       <div style={{ marginTop: 20 }}>
 
         {!running ? (
           <button onClick={startGame}>
-            START GAME
+            START 🚀
           </button>
         ) : (
           <button onClick={cashOut}>
-            CASH OUT
+            CASH OUT 💰
           </button>
         )}
 
       </div>
 
       <h3 style={{ marginTop: 20 }}>{result}</h3>
+
+      {/* CSS SHAKE */}
+      <style>
+        {`
+          @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+          }
+        `}
+      </style>
 
     </div>
   );
