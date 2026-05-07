@@ -1,195 +1,132 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function CrashGameDemo() {
+const fakePlayers = [
+  { id: 1, name: "Emeka", stake: 500 },
+  { id: 2, name: "Chioma", stake: 1000 },
+  { id: 3, name: "Tunde", stake: 250 },
+  { id: 4, name: "Mary", stake: 750 }
+];
 
-  const [multiplier, setMultiplier] = useState(1);
-  const [running, setRunning] = useState(false);
-  const [crashed, setCrashed] = useState(false);
-  const [cashout, setCashout] = useState(false);
-  const [stake, setStake] = useState("");
-  const [result, setResult] = useState("");
+export default function CrashWaitingRoomDemo() {
+  const [countdown, setCountdown] = useState(10);
+  const [players, setPlayers] = useState(fakePlayers);
+  const [joined, setJoined] = useState(false);
 
-  const [jetY, setJetY] = useState(0);
+  // countdown animation
+  useEffect(() => {
+    if (countdown <= 0) return;
 
-  const intervalRef = useRef(null);
-  const crashPointRef = useRef(0);
+    const t = setInterval(() => {
+      setCountdown((c) => c - 1);
+    }, 1000);
 
-  // 🔊 SIMPLE SOUND ENGINE (no files needed)
-  const beep = (freq = 200, time = 120) => {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+    return () => clearInterval(t);
+  }, [countdown]);
 
-      osc.frequency.value = freq;
-      osc.type = "sine";
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+  // fake "join"
+  function joinGame() {
+    if (joined) return;
 
-      osc.start();
-      setTimeout(() => osc.stop(), time);
-    } catch {}
-  };
+    setPlayers((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        name: "You",
+        stake: 500
+      }
+    ]);
 
-  function generateCrashPoint() {
-    return (Math.random() * 10 + 1.5).toFixed(2);
+    setJoined(true);
   }
 
-  const startGame = () => {
-
-    if (running) return;
-
-    const bet = Number(stake);
-    if (!bet || bet < 1) return;
-
-    setRunning(true);
-    setCrashed(false);
-    setCashout(false);
-    setMultiplier(1);
-    setJetY(0);
-    setResult("");
-
-    crashPointRef.current = parseFloat(generateCrashPoint());
-
-    beep(300); // start sound
-
-    intervalRef.current = setInterval(() => {
-
-      setMultiplier(prev => {
-
-        const next = +(prev + 0.05).toFixed(2);
-
-        // ✈️ move jet upward
-        setJetY(jet => jet - 6);
-
-        if (next >= crashPointRef.current) {
-          crashGame();
-        }
-
-        return next;
-      });
-
-    }, 120);
-  };
-
-  const crashGame = () => {
-
-    clearInterval(intervalRef.current);
-    setRunning(false);
-    setCrashed(true);
-
-    beep(120, 300); // crash sound
-
-    if (!cashout) {
-      setResult("💥 CRASHED — LOST");
-    }
-  };
-
-  const cashOut = () => {
-
-    if (!running || cashout) return;
-
-    setCashout(true);
-
-    const bet = Number(stake);
-    const win = Math.floor(bet * multiplier);
-
-    setResult(`🎉 CASHOUT x${multiplier} → ₦${win}`);
-
-    beep(600); // win sound
-
-    clearInterval(intervalRef.current);
-    setRunning(false);
-  };
-
   return (
-    <div style={{
-      textAlign: "center",
-      paddingTop: 60,
-      background: "#050816",
-      height: "100vh",
-      color: "white",
-      overflow: "hidden"
-    }}>
+    <div style={styles.container}>
 
-      <h2>💥 CRASH GAME DEMO</h2>
+      {/* TITLE */}
+      <h1 style={styles.title}>🚀 Crash Game Lobby (Demo)</h1>
 
-      {/* MULTIPLIER */}
-      <h1 style={{
-        fontSize: 60,
-        transition: "0.2s"
-      }}>
-        x{multiplier.toFixed(2)}
-      </h1>
-
-      {/* CRASH TEXT */}
-      {crashed && !cashout && (
-        <h2 style={{ color: "red", animation: "shake 0.3s" }}>
-          💥 CRASHED
+      {/* STATUS */}
+      <div style={styles.card}>
+        <h3>🟡 Status: WAITING PLAYERS</h3>
+        <h2 style={{ color: "gold" }}>
+          ⏳ Starts in: {countdown}s
         </h2>
-      )}
-
-      {/* ✈️ JET ANIMATION */}
-      <div style={{
-        position: "relative",
-        height: 200,
-        marginTop: 20
-      }}>
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            transform: `translate(-50%, ${jetY}px)`,
-            fontSize: 60,
-            transition: "transform 0.1s linear"
-          }}
-        >
-          ✈️
-        </div>
       </div>
 
-      {/* INPUT */}
-      <input
-        type="number"
-        placeholder="Stake"
-        value={stake}
-        onChange={e => setStake(e.target.value)}
+      {/* JOIN BUTTON */}
+      <button
+        onClick={joinGame}
         style={{
-          padding: 10,
-          fontSize: 16,
-          borderRadius: 6
+          ...styles.button,
+          background: joined ? "gray" : "gold"
         }}
-      />
+      >
+        {joined ? "JOINED" : "JOIN GAME"}
+      </button>
 
-      <div style={{ marginTop: 20 }}>
+      {/* PLAYERS LIST */}
+      <div style={styles.list}>
+        <h3>👥 Players in Room</h3>
 
-        {!running ? (
-          <button onClick={startGame}>
-            START 🚀
-          </button>
-        ) : (
-          <button onClick={cashOut}>
-            CASH OUT 💰
-          </button>
-        )}
-
+        {players.map((p) => (
+          <div key={p.id} style={styles.player}>
+            👤 {p.name} — ₦{p.stake}
+          </div>
+        ))}
       </div>
 
-      <h3 style={{ marginTop: 20 }}>{result}</h3>
-
-      {/* CSS SHAKE */}
-      <style>
-        {`
-          @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            50% { transform: translateX(5px); }
-            75% { transform: translateX(-5px); }
-            100% { transform: translateX(0); }
-          }
-        `}
-      </style>
+      {/* FAKE LIVE ANIMATION */}
+      <div style={styles.footer}>
+        🔥 Game will start soon... get ready to cash out!
+      </div>
 
     </div>
   );
 }
+
+// =========================
+// STYLES
+// =========================
+const styles = {
+  container: {
+    padding: 20,
+    textAlign: "center",
+    background: "#020617",
+    minHeight: "100vh",
+    color: "#fff"
+  },
+  title: {
+    fontSize: 26,
+    marginBottom: 20
+  },
+  card: {
+    background: "#111827",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  button: {
+    padding: "12px 20px",
+    fontSize: 18,
+    borderRadius: 10,
+    border: "none",
+    cursor: "pointer",
+    marginBottom: 20
+  },
+  list: {
+    marginTop: 20,
+    textAlign: "left",
+    background: "#0f172a",
+    padding: 15,
+    borderRadius: 10
+  },
+  player: {
+    padding: 8,
+    borderBottom: "1px solid #1f2937"
+  },
+  footer: {
+    marginTop: 20,
+    color: "gold",
+    fontWeight: "bold"
+  }
+};
