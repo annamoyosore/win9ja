@@ -4,18 +4,41 @@ import ReactDOM from "react-dom/client";
 import WhotGame from "./WhotGame";
 import BottleGame from "./BottleGame";
 import DiceBattle from "./DiceBattle";
+import CrashGameRoomDemo from "./CrashGameRoomDemo"; // ✅ ADD THIS
 
 function App() {
   const [currentGame, setCurrentGame] = useState(null);
 
+  // 👇 crash stage control (waiting → game)
+  const [crashPlayers, setCrashPlayers] = useState([]);
+
   const renderGame = () => {
     switch (currentGame) {
+
       case "whot":
-        return <WhotGame />;
+        return (
+          <WhotGame
+            onStartCrash={(players) => {
+              setCrashPlayers(players || []);
+              setCurrentGame("crash");
+            }}
+          />
+        );
+
       case "bottle":
         return <BottleGame />;
+
       case "dice":
         return <DiceBattle />;
+
+      case "crash":
+        return (
+          <CrashGameRoomDemo
+            players={crashPlayers}
+            onBack={() => setCurrentGame(null)}
+          />
+        );
+
       default:
         return null;
     }
@@ -24,7 +47,7 @@ function App() {
   return (
     <React.StrictMode>
       <div style={{ textAlign: "center", padding: "20px" }}>
-        
+
         {/* 🎮 LOBBY */}
         {!currentGame && (
           <div>
@@ -33,7 +56,7 @@ function App() {
 
             <div style={{ marginTop: "20px" }}>
               <button onClick={() => setCurrentGame("whot")}>
-                🃏 Play Whot
+                🃏 Play Whot (Waiting Room)
               </button>
 
               <button
@@ -54,7 +77,7 @@ function App() {
         )}
 
         {/* 🔙 BACK BUTTON */}
-        {currentGame && (
+        {currentGame && currentGame !== "crash" && (
           <div style={{ marginBottom: "10px" }}>
             <button onClick={() => setCurrentGame(null)}>
               ⬅ Back to Lobby
