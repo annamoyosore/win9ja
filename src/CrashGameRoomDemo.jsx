@@ -2,15 +2,13 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CrashGameRoomDemo({ players = [], onBack }) {
   const [multiplier, setMultiplier] = useState(1.0);
-  const [crashed, setCrashed] = useState(false);
+  const [status, setStatus] = useState("RUNNING"); // RUNNING | CRASHED | RESETTING
   const [cashedOut, setCashedOut] = useState(false);
 
-  const [cashoutValue, setCashoutValue] = useState(null);
-  const [rocketY, setRocketY] = useState(0);
-
-  // 💵 BET SYSTEM
-  const [bet, setBet] = useState(1000); // default ₦1000
+  const [bet, setBet] = useState(1000);
   const [profit, setProfit] = useState(0);
+
+  const [rocketY, setRocketY] = useState(0);
 
   const intervalRef = useRef(null);
   const crashPointRef = useRef(null);
@@ -18,36 +16,63 @@ export default function CrashGameRoomDemo({ players = [], onBack }) {
   // 🎯 START ROUND
   function startRound() {
     setMultiplier(1.0);
-    setCrashed(false);
+    setStatus("RUNNING");
     setCashedOut(false);
-    setCashoutValue(null);
-    setRocketY(0);
     setProfit(0);
+    setRocketY(0);
 
-    crashPointRef.current = +(3.5 + Math.random() * 3).toFixed(2);
+    crashPointRef.current = +(3.2 + Math.random() * 3).toFixed(2);
 
     intervalRef.current = setInterval(() => {
       setMultiplier((m) => {
-        const next = +(m + 0.05).toFixed(2);
+        if (status !== "RUNNING") return m;
 
-        setRocketY((y) => y + 4);
+        // 📈 NON-LINEAR GROWTH (more realistic crash curve)
+        const growth = 0.02 + m * 0.015;
+        const next = +(m + growth).toFixed(2);
 
-        // 📈 LIVE PROFIT CALCULATION
-        const liveProfit = (bet * next) - bet;
-        setProfit(liveProfit > 0 ? liveProfit : 0);
+        setRocketY((y) => y + 3 + m * 0.2);
 
-        // 💥 CRASH
+        // 💰 LIVE PROFIT
+        setProfit(((bet * next) - bet).toFixed(2));
+
+        // 💥 CRASH CHECK
         if (next >= crashPointRef.current) {
           clearInterval(intervalRef.current);
-          setCrashed(true);
+          setStatus("CRASHED");
+
+          // start crash animation
+          triggerCrashAnimation(next);
         }
 
         return next;
       });
-    }, 120);
+    }, 100);
   }
 
-  // 🚀 INIT
+  // 💥 CRASH ANIMATION (falling effect)
+  function triggerCrashAnimation(finalValue) {
+    let decay = finalValue;
+
+    const crashInterval = setInterval(() => {
+      decay -= 0.15;
+
+      if (decay <= 1) {
+        clearInterval(crashInterval);
+
+        setTimeout(() => {
+          setStatus("RESETTING");
+          startRound();
+        }, 1200);
+
+        return;
+      }
+
+      setMultiplier(decay);
+      setRocketY((y) => y - 4);
+    }, 80);
+  }
+
   useEffect(() => {
     startRound();
     return () => clearInterval(intervalRef.current);
@@ -55,45 +80,32 @@ export default function CrashGameRoomDemo({ players = [], onBack }) {
 
   // 💰 CASHOUT
   function cashout() {
-    if (crashed || cashedOut) return;
+    if (status !== "RUNNING" || cashedOut) return;
 
     setCashedOut(true);
-    setCashoutValue(multiplier);
 
-    const finalProfit = (bet * multiplier) - bet;
-    setProfit(finalProfit);
+    const payout = bet * multiplier;
+    const net = payout - bet;
+
+    setProfit(net.toFixed(2));
   }
-
-  // 🔁 RESTART AFTER CRASH
-  useEffect(() => {
-    if (!crashed) return;
-
-    const t = setTimeout(() => startRound(), 2500);
-    return () => clearTimeout(t);
-  }, [crashed]);
 
   return (
     <div style={styles.container}>
 
-      <h2>🚀 CRASH GAME ROOM</h2>
+      <h2>🚀 CRASH GAME</h2>
 
-      {/* 💵 BET INPUT */}
-      <div style={{ marginBottom: 10 }}>
-        <input
-          type="number"
-          value={bet}
-          onChange={(e) => setBet(Number(e.target.value))}
-          style={styles.input}
-          min={100}
-        />
-        <div style={{ fontSize: 12, opacity: 0.7 }}>
-          Bet Amount (₦)
-        </div>
-      </div>
+      {/* BET */}
+      <input
+        type="number"
+        value={bet}
+        onChange={(e) => setBet(Number(e.target.value))}
+        style={styles.input}
+      />
 
       {/* MULTIPLIER */}
       <div style={styles.multiplier}>
-        {crashed ? (
+        {status === "CRASHED" ? (
           <span style={{ color: "red" }}>
             💥 CRASHED @ {multiplier.toFixed(2)}x
           </span>
@@ -104,7 +116,7 @@ export default function CrashGameRoomDemo({ players = [], onBack }) {
         )}
       </div>
 
-      {/* 🚀 ROCKET */}
+      {/* ROCKET */}
       <div
         style={{
           ...styles.rocket,
@@ -114,51 +126,66 @@ export default function CrashGameRoomDemo({ players = [], onBack }) {
         🚀
       </div>
 
-      {/* 📈 LIVE PROFIT */}
-      <div style={styles.profitBox}>
-        <div>Bet: ₦{bet}</div>
-        <div style={{ color: profit >= 0 ? "lime" : "red" }}>
-          Live Profit: ₦{profit.toFixed(2)}
-        </div>
-      </div>
-
-      {/* PLAYERS */}
-      <div style={styles.panel}>
-        <h3>👥 Players</h3>
-        {players.map((p) => (
-          <div key={p.id}>
-            {p.name} — ₦{p.stake}
-          </div>
-        ))}
+      {/* LIVE PROFIT */}
+      <div style={styles.profit}>
+        Live Profit: ₦{profit}
       </div>
 
       {/* CASHOUT */}
       <button
         onClick={cashout}
-        disabled={crashed || cashedOut}
+        disabled={status !== "RUNNING" || cashedOut}
         style={styles.button}
       >
-        {cashedOut
-          ? `CASHED OUT @ ${cashoutValue}x (+₦${profit.toFixed(0)})`
-          : "CASH OUT"}
+        CASH OUT
       </button>
 
-      {/* RESULT */}
-      {crashed && !cashedOut && (
-        <div style={{ color: "red", marginTop: 10 }}>
-          You lost ₦{bet} 💔
-        </div>
-      )}
-
-      {cashedOut && (
-        <div style={{ color: "gold", marginTop: 10 }}>
-          🎉 Won ₦{profit.toFixed(2)}
-        </div>
-      )}
+      {/* STATUS */}
+      <div style={{ marginTop: 10 }}>
+        {status === "RUNNING" && "Game Running"}
+        {status === "CRASHED" && "Crashed 💥"}
+        {status === "RESETTING" && "Next round starting..."}
+      </div>
 
       <button onClick={onBack} style={{ marginTop: 20 }}>
-        ← Back to Lobby
+        ← Back
       </button>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    textAlign: "center",
+    padding: 20,
+    background: "#020617",
+    color: "#fff",
+    minHeight: "100vh"
+  },
+  multiplier: {
+    fontSize: 42,
+    fontWeight: "bold",
+    margin: 20
+  },
+  rocket: {
+    fontSize: 40,
+    transition: "transform 0.1s linear"
+  },
+  profit: {
+    marginTop: 10,
+    color: "gold"
+  },
+  button: {
+    marginTop: 20,
+    padding: 12,
+    fontSize: 18,
+    borderRadius: 10,
+    background: "gold",
+    border: "none"
+  },
+  input: {
+    padding: 8,
+    fontSize: 16,
+    marginTop: 10
+  }
+};
