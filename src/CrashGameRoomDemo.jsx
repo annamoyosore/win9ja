@@ -58,8 +58,8 @@ export default function CrashGameRoomDemo({ onBack }) {
     crashPointRef.current = +(1.5 + Math.random() * 4).toFixed(2);
 
     let currentMultiplier = 1;
-    let x = 0;
-    let y = 0;
+    let x = 20;
+    let y = 10;
 
     intervalRef.current = setInterval(() => {
       if (statusRef.current !== "RUNNING") return;
@@ -70,9 +70,13 @@ export default function CrashGameRoomDemo({ onBack }) {
 
       setMultiplier(currentMultiplier);
 
-      // ✈️ Real aviation floating movement
-      x += 5 + currentMultiplier * 0.8;
-      y += 1.5 + currentMultiplier * 0.9;
+      // ✈️ Smooth aviation flight movement
+      x += 2.2 + currentMultiplier * 0.45;
+      y += 0.9 + currentMultiplier * 0.55;
+
+      // keep plane inside screen
+      if (x > 320) x = 320;
+      if (y > 220) y = 220;
 
       setRocketPos({ x, y });
 
@@ -189,10 +193,9 @@ export default function CrashGameRoomDemo({ onBack }) {
         <div
           style={{
             ...styles.rocket,
-            left: rocketPos.x,
-            bottom: rocketPos.y,
-            transform: `rotate(${Math.min(multiplier * 8, 45)}deg)`
-          }}
+            left: `${rocketPos.x}px`,
+            bottom: `${rocketPos.y}px`,
+            transform: `translate(-50%, 50%) rotate(${Math.min(multiplier * 8, 35)}deg)`
         >
           ✈️
         </div>
