@@ -2,28 +2,64 @@ import { useEffect, useState } from "react";
 
 const SIZE = 100;
 
-const snakes = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+// 🐍 Snakes const snakes = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
 
-const ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
+// 🪜 Ladders const ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
+
+// 🕳️ Special tiles const potholes = { 13: -3, 33: -5, 77: -10 };
+
+const missTurns = { 22: 2, 66: 2 };
+
+const dryBack = { 44: 1, 88: 10 };
 
 function rollDice() { return Math.floor(Math.random() * 6) + 1; }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-export default function SnakeAndLadder() { const [player, setPlayer] = useState(1); const [bot, setBot] = useState(1); const [dice, setDice] = useState(1); const [turn, setTurn] = useState("player"); const [winner, setWinner] = useState(null); const [moving, setMoving] = useState(false);
+export default function SnakeAndLadder() { const [player, setPlayer] = useState(1); const [bot, setBot] = useState(1); const [dice, setDice] = useState(1); const [turn, setTurn] = useState("player"); const [winner, setWinner] = useState(null); const [moving, setMoving] = useState(false); const [message, setMessage] = useState(""); const [skipPlayer, setSkipPlayer] = useState(0); const [skipBot, setSkipBot] = useState(0);
 
-function applySpecial(pos) { if (snakes[pos]) return snakes[pos]; if (ladders[pos]) return ladders[pos]; return pos; }
+function applyTileEffects(pos, isPlayer) { let newPos = pos;
+
+if (snakes[newPos]) {
+  setMessage("🐍 Snake bite!");
+  newPos = snakes[newPos];
+}
+
+if (ladders[newPos]) {
+  setMessage("🪜 Ladder up!");
+  newPos = ladders[newPos];
+}
+
+if (potholes[newPos]) {
+  setMessage("🕳️ Pot hole! Move back");
+  newPos = Math.max(1, newPos + potholes[newPos]);
+}
+
+if (missTurns[newPos]) {
+  setMessage("⏳ Miss turns activated!");
+  if (isPlayer) setSkipPlayer(missTurns[newPos]);
+  else setSkipBot(missTurns[newPos]);
+}
+
+if (dryBack[newPos]) {
+  setMessage("🌪️ Dry back storm!");
+  newPos = dryBack[newPos];
+}
+
+return newPos;
+
+}
 
 async function animateMove(start, steps, setter, isPlayer) { let pos = start;
 
 for (let i = 0; i < steps; i++) {
-  await sleep(150);
+  await sleep(120);
   pos += 1;
   setter(pos);
 }
 
 await sleep(200);
-const finalPos = applySpecial(pos);
+const finalPos = applyTileEffects(pos, isPlayer);
 setter(finalPos);
 
 if (finalPos === SIZE) {
@@ -34,14 +70,15 @@ return finalPos;
 
 }
 
-async function playPlayer() { if (turn !== "player" || winner || moving) return;
+async function playPlayer() { if (turn !== "player" || winner || moving || skipPlayer > 0) { if (skipPlayer > 0) setSkipPlayer(skipPlayer - 1); setTurn("bot"); return; }
 
 setMoving(true);
 
 const value = rollDice();
 setDice(value);
+setMessage(`🎲 You rolled ${value}`);
 
-const newPos = await animateMove(player, value, setPlayer, true);
+await animateMove(player, value, setPlayer, true);
 
 setTurn("bot");
 setMoving(false);
@@ -50,12 +87,19 @@ setMoving(false);
 
 useEffect(() => { async function botPlay() { if (turn !== "bot" || winner || moving) return;
 
-setMoving(true);
+if (skipBot > 0) {
+    setSkipBot(skipBot - 1);
+    setTurn("player");
+    return;
+  }
+
+  setMoving(true);
 
   const value = rollDice();
   setDice(value);
+  setMessage(`🤖 Bot rolled ${value}`);
 
-  const newPos = await animateMove(bot, value, setBot, false);
+  await animateMove(bot, value, setBot, false);
 
   setTurn("player");
   setMoving(false);
@@ -65,16 +109,21 @@ botPlay();
 
 }, [turn]);
 
-function reset() { setPlayer(1); setBot(1); setDice(1); setTurn("player"); setWinner(null); setMoving(false); }
+function reset() { setPlayer(1); setBot(1); setDice(1); setTurn("player"); setWinner(null); setMoving(false); setMessage(""); setSkipPlayer(0); setSkipBot(0); }
 
-return ( <div style={styles.container}> <h2>🐍 Snake & Ladder (Player vs Bot)</h2>
+function getIcon(num) { if (snakes[num]) return "🐍"; if (ladders[num]) return "🪜"; if (potholes[num]) return "🕳️"; if (missTurns[num]) return "⏳"; if (dryBack[num]) return "🌪️"; return ""; }
 
-<div style={styles.board}>
+return ( <div style={styles.container}> <h2>🐍 Snake & Ladder (Enhanced Board)</h2>
+
+<p style={{ color: "#facc15" }}>{message}</p>
+
+  <div style={styles.board}>
     {Array.from({ length: SIZE }, (_, i) => i + 1).map((num) => (
       <div key={num} style={styles.cell}>
+        <span style={{ fontSize: 8 }}>{num}</span>
+        <span>{getIcon(num)}</span>
         {player === num && "🔴"}
         {bot === num && "🤖"}
-        <span style={{ fontSize: 8 }}>{num}</span>
       </div>
     ))}
   </div>
@@ -96,7 +145,7 @@ return ( <div style={styles.container}> <h2>🐍 Snake & Ladder (Player vs Bot)<
   </div>
 
   <p style={styles.note}>
-    Dice controls step-by-step movement (realistic snake & ladder logic)
+    🧠 Includes snakes, ladders, potholes, miss-turns & dry-back zones
   </p>
 </div>
 
