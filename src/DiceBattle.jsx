@@ -280,7 +280,7 @@ export default function SnakeAndLadder() {
       <p style={styles.note}>
         Add board image as:
         <br />
-        <b>public/board.png</b>
+        <b>board.png</b>
       </p>
     </div>
   );
