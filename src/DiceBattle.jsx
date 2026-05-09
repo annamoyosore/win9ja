@@ -12,17 +12,17 @@ export default function SnakeAndLadder() { const [player, setPlayer] = useState(
 
 function applyEffects(pos, isPlayer) { let p = pos;
 
-if (snakes[p]) { setMsg("snake"); p = snakes[p]; }
-if (ladders[p]) { setMsg("ladder"); p = ladders[p]; }
-if (potholes[p]) { setMsg("hole"); p = Math.max(1, p + potholes[p]); }
+if (snakes[p]) { setMsg("🐍 Snake! Down"); p = snakes[p]; }
+if (ladders[p]) { setMsg("🪜 Ladder! Up"); p = ladders[p]; }
+if (potholes[p]) { setMsg("🕳️ Hole! Back"); p = Math.max(1, p + potholes[p]); }
 
 if (missTurns[p]) {
-  setMsg("skip");
+  setMsg("⏳ Miss turns");
   if (isPlayer) setSkipP(missTurns[p]);
   else setSkipB(missTurns[p]);
 }
 
-if (dryBack[p]) { setMsg("reset"); p = dryBack[p]; }
+if (dryBack[p]) { setMsg("🌪️ Reset zone"); p = dryBack[p]; }
 
 return p;
 
@@ -88,21 +88,40 @@ botPlay();
 
 function reset() { setPlayer(1); setBot(1); setDice(1); setTurn("player"); setWinner(null); setMoving(false); setMsg(""); setSkipP(0); setSkipB(0); }
 
-function icon(n) { if (snakes[n]) return "S"; if (ladders[n]) return "L"; if (potholes[n]) return "H"; if (missTurns[n]) return "M"; if (dryBack[n]) return "D"; return ""; }
-
-return ( <div style={styles.container}> <h3>Snake & Ladder</h3>
+return ( <div style={styles.container}> <h3>🐍 Snake & Ladder</h3>
 
 <p style={styles.msg}>{msg}</p>
 
-  <div style={styles.board}>
-    {Array.from({ length: SIZE }, (_, i) => i + 1).map((n) => (
-      <div key={n} style={styles.cell}>
-        <span style={styles.num}>{n}</span>
-        <span style={styles.icon}>{icon(n)}</span>
-        {player === n && "P"}
-        {bot === n && "B"}
-      </div>
-    ))}
+  {/* 🎨 REAL BOARD IMAGE BACKGROUND */}
+  <div style={styles.boardWrap}>
+    <img
+      src="/board.png"
+      alt="snake ladder board"
+      style={styles.boardImg}
+    />
+
+    {/* PLAYER TOKENS OVERLAY */}
+    <div
+      style={{
+        ...styles.token,
+        left: `${(player % 10) * 10}%`,
+        top: `${Math.floor(player / 10) * 10}%",
+        background: "red"
+      }}
+    >
+      P
+    </div>
+
+    <div
+      style={{
+        ...styles.token,
+        left: `${(bot % 10) * 10}%`,
+        top: `${Math.floor(bot / 10) * 10}%",
+        background: "blue"
+      }}
+    >
+      B
+    </div>
   </div>
 
   <div style={styles.info}>
@@ -112,12 +131,16 @@ return ( <div style={styles.container}> <h3>Snake & Ladder</h3>
 
   <div style={styles.btns}>
     <button onClick={playPlayer} disabled={turn !== "player" || moving}>
-      Roll
+      Roll 🎲
     </button>
     <button onClick={reset}>Reset</button>
   </div>
+
+  <p style={styles.note}>
+    🎨 Uses real board image (add /board.png in public folder)
+  </p>
 </div>
 
 ); }
 
-const styles = { container: { background: "#0f172a", color: "white", minHeight: "100vh", textAlign: "center", padding: 10, fontFamily: "Arial" }, board: { display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 1, marginTop: 10 }, cell: { background: "#1f2937", height: 22, fontSize: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }, num: { fontSize: 7 }, icon: { fontSize: 8 }, info: { marginTop: 8, fontSize: 12 }, btns: { marginTop: 8, display: "flex", gap: 6, justifyContent: "center" }, msg: { fontSize: 11, opacity: 0.8 } };
+const styles = { container: { background: "#0f172a", color: "white", minHeight: "100vh", textAlign: "center", padding: 10 }, boardWrap: { position: "relative", width: 300, height: 300, margin: "10px auto" }, boardImg: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 10 }, token: { position: "absolute", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "white", fontWeight: "bold" }, info: { marginTop: 10 }, btns: { marginTop: 10, display: "flex", gap: 10, justifyContent: "center" }, msg: { fontSize: 12, opacity: 0.8 }, note: { fontSize: 11, opacity: 0.7 } };
