@@ -1,209 +1,103 @@
-import { useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
-export default function DiceBattle() {
-  const [playerRoll, setPlayerRoll] = useState(null);
-  const [botRoll, setBotRoll] = useState(null);
-  const [rolling, setRolling] = useState(false);
-  const [result, setResult] = useState("");
-  const [phase, setPhase] = useState("idle");
+const BOARD_SIZE = 15;
 
-  const audioCtxRef = useRef(null);
+function getInitialState() { return { player: { pos: 0 }, bot: { pos: 0 }, dice: 1, turn: "player", winner: null, rolling: false }; }
 
-  // 🔊 SOUND ENGINE
-  const playSound = (type) => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext ||
-        window.webkitAudioContext)();
-    }
+export default function LudoVsBot() { const [state, setState] = useState(getInitialState());
 
-    const ctx = audioCtxRef.current;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+function rollDice(isBot = false) { if (state.winner || state.rolling) return;
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+const dice = Math.floor(Math.random() * 6) + 1;
 
-    if (type === "roll") {
-      osc.frequency.value = 400;
-      gain.gain.value = 0.05;
-    }
+setState((prev) => {
+  const current = isBot ? "bot" : "player";
+  const newPos = prev[current].pos + dice;
 
-    if (type === "land") {
-      osc.frequency.value = 150;
-      gain.gain.value = 0.1;
-    }
+  let winner = null;
+  if (newPos >= BOARD_SIZE) {
+    winner = current;
+  }
 
-    osc.start();
-    setTimeout(() => osc.stop(), type === "roll" ? 400 : 150);
+  return {
+    ...prev,
+    dice,
+    rolling: false,
+    [current]: {
+      pos: Math.min(newPos, BOARD_SIZE)
+    },
+    turn: isBot ? "player" : "bot",
+    winner
   };
+});
 
-  // 🎯 PSEUDO SERVER RESULT
-  const getServerResult = () => {
-    const player = Math.floor(Math.random() * 6) + 1;
-    const bot = Math.floor(Math.random() * 6) + 1;
-
-    let winner;
-    if (player > bot) winner = "PLAYER";
-    else if (player < bot) winner = "BOT";
-    else winner = "DRAW";
-
-    return { player, bot, winner };
-  };
-
-  const rollDice = () => {
-    if (rolling) return;
-
-    setRolling(true);
-    setPhase("rolling");
-    setResult("");
-
-    playSound("roll");
-
-    // 🔐 lock result first
-    const { player, bot, winner } = getServerResult();
-
-    // 🎲 fake rolling animation numbers
-    let interval = setInterval(() => {
-      setPlayerRoll(Math.floor(Math.random() * 6) + 1);
-      setBotRoll(Math.floor(Math.random() * 6) + 1);
-    }, 100);
-
-    // ⏳ suspense phase
-    setTimeout(() => {
-      setPhase("slowing");
-    }, 1200);
-
-    // 🎯 final result
-    setTimeout(() => {
-      clearInterval(interval);
-
-      setPlayerRoll(player);
-      setBotRoll(bot);
-
-      playSound("land");
-
-      if (winner === "PLAYER") {
-        setResult("🎉 You Win!");
-      } else if (winner === "BOT") {
-        setResult("🤖 Bot Wins!");
-      } else {
-        setResult("⚖️ Draw!");
-      }
-
-      setPhase("result");
-      setRolling(false);
-    }, 2000);
-  };
-
-  // 🎲 Dice faces
-  const diceFaces = ["⚀","⚁","⚂","⚃","⚄","⚅"];
-
-  return (
-    <>
-      <style>{`
-        .container {
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          font-family: Arial;
-          color: white;
-          background: linear-gradient(-45deg, #1f4037, #99f2c8);
-          background-size: 400% 400%;
-          animation: bg 10s ease infinite;
-        }
-
-        @keyframes bg {
-          0% {background-position: 0% 50%;}
-          50% {background-position: 100% 50%;}
-          100% {background-position: 0% 50%;}
-        }
-
-        .dice-area {
-          display: flex;
-          gap: 40px;
-          margin: 30px 0;
-        }
-
-        .dice {
-          font-size: 100px;
-          transition: transform 0.3s ease;
-        }
-
-        .rolling {
-          animation: shake 0.3s infinite;
-        }
-
-        @keyframes shake {
-          0% { transform: rotate(0deg); }
-          25% { transform: rotate(10deg); }
-          50% { transform: rotate(-10deg); }
-          75% { transform: rotate(8deg); }
-          100% { transform: rotate(0deg); }
-        }
-
-        button {
-          padding: 12px 24px;
-          border: none;
-          border-radius: 25px;
-          background: #ff5722;
-          color: white;
-          font-size: 16px;
-          cursor: pointer;
-        }
-
-        button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .status {
-          margin-top: 10px;
-          font-size: 14px;
-          opacity: 0.8;
-        }
-
-        .result {
-          margin-top: 20px;
-          font-size: 24px;
-          animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
-      <div className="container">
-        <h2>Dice Battle</h2>
-
-        <div className="dice-area">
-          <div className={`dice ${rolling ? "rolling" : ""}`}>
-            {playerRoll ? diceFaces[playerRoll - 1] : "🎲"}
-          </div>
-
-          <div className={`dice ${rolling ? "rolling" : ""}`}>
-            {botRoll ? diceFaces[botRoll - 1] : "🎲"}
-          </div>
-        </div>
-
-        <button onClick={rollDice} disabled={rolling}>
-          {rolling ? "Rolling..." : "Roll Dice"}
-        </button>
-
-        {phase === "rolling" && <p className="status">🎲 Rolling...</p>}
-        {phase === "slowing" && <p className="status">⏳ Almost there...</p>}
-
-        {playerRoll && botRoll && !rolling && (
-          <p className="status">
-            🧑 You: {playerRoll} | 🤖 Bot: {botRoll}
-          </p>
-        )}
-
-        {result && <div className="result">{result}</div>}
-      </div>
-    </>
-  );
 }
+
+function playerMove() { if (state.turn !== "player" || state.winner) return;
+
+setState((prev) => ({ ...prev, rolling: true }));
+
+setTimeout(() => {
+  rollDice(false);
+}, 500);
+
+}
+
+useEffect(() => { if (state.turn === "bot" && !state.winner) { const timer = setTimeout(() => { setState((prev) => ({ ...prev, rolling: true }));
+
+setTimeout(() => {
+      rollDice(true);
+    }, 600);
+  }, 800);
+
+  return () => clearTimeout(timer);
+}
+
+}, [state.turn, state.winner]);
+
+function resetGame() { setState(getInitialState()); }
+
+return ( <div style={styles.container}> <h2>🎲 Ludo: Player vs Bot</h2>
+
+<div style={styles.board}>
+    {Array.from({ length: BOARD_SIZE }).map((_, i) => (
+      <div key={i} style={styles.cell}>
+        {state.player.pos === i && <span>🔴</span>}
+        {state.bot.pos === i && <span>🤖</span>}
+      </div>
+    ))}
+  </div>
+
+  <div style={styles.info}>
+    <p>Dice: <b>{state.dice}</b></p>
+    <p>Turn: <b>{state.turn === "player" ? "You" : "Bot"}</b></p>
+
+    {state.winner && (
+      <h3>
+        🏆 {state.winner === "player" ? "You Win!" : "Bot Wins!"}
+      </h3>
+    )}
+  </div>
+
+  <div style={styles.buttons}>
+    <button
+      style={styles.btn}
+      onClick={playerMove}
+      disabled={state.turn !== "player" || state.rolling}
+    >
+      Roll Dice 🎲
+    </button>
+
+    <button style={styles.reset} onClick={resetGame}>
+      Reset
+    </button>
+  </div>
+
+  <p style={styles.note}>
+    (Frontend only — Player vs AI bot, no backend)
+  </p>
+</div>
+
+); }
+
+const styles = { container: { fontFamily: "Arial", textAlign: "center", padding: 20, color: "#fff", background: "#0f172a", minHeight: "100vh" }, board: { display: "grid", gridTemplateColumns: "repeat(15, 20px)", justifyContent: "center", margin: "20px 0", gap: 2 }, cell: { width: 20, height: 20, background: "#1f2937", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }, info: { marginTop: 10 }, buttons: { marginTop: 15, display: "flex", gap: 10, justifyContent: "center" }, btn: { padding: "10px 15px", background: "#16a34a", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }, reset: { padding: "10px 15px", background: "#ef4444", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }, note: { marginTop: 10, fontSize: 12, opacity: 0.7 } };
