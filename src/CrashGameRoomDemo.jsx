@@ -70,9 +70,9 @@ export default function CrashGameRoomDemo({ onBack }) {
 
       setMultiplier(currentMultiplier);
 
-      // ✈️ Diagonal aviation movement
-      x += 6;
-      y += 2 + currentMultiplier * 1.2;
+      // ✈️ Real aviation floating movement
+      x += 5 + currentMultiplier * 0.8;
+      y += 1.5 + currentMultiplier * 0.9;
 
       setRocketPos({ x, y });
 
@@ -158,6 +158,10 @@ export default function CrashGameRoomDemo({ onBack }) {
       </div>
 
       {/* MULTIPLIER */}
+      <div style={{ marginBottom: 8, opacity: 0.7 }}>
+        Flight Taking Off...
+      </div>
+
       <div
         style={{
           ...styles.multiplier,
@@ -186,7 +190,8 @@ export default function CrashGameRoomDemo({ onBack }) {
           style={{
             ...styles.rocket,
             left: rocketPos.x,
-            bottom: rocketPos.y
+            bottom: rocketPos.y,
+            transform: `rotate(${Math.min(multiplier * 8, 45)}deg)`
           }}
         >
           ✈️
@@ -289,7 +294,8 @@ const styles = {
 
   rocket: {
     position: "absolute",
-    fontSize: 34,
+    fontSize: 42,
+    filter: "drop-shadow(0 0 10px #22c55e)",
     transition: "all 0.04s linear"
   },
 
