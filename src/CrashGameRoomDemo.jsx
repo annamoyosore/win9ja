@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CrashGameRoomDemo({ onBack }) {
-  const [status, setStatus] = useState("BETTING"); // BETTING | RUNNING | CRASHED
+  const [status, setStatus] = useState("BETTING");
   const [countdown, setCountdown] = useState(5);
   const [multiplier, setMultiplier] = useState(1.0);
-  const [rocketPos, setRocketPos] = useState({ x: 0, y: 0 });
+
+  const [rocketPos, setRocketPos] = useState({
+    x: 20,
+    y: 10
+  });
+
   const [flightPoints, setFlightPoints] = useState([]);
 
   const statusRef = useRef("BETTING");
@@ -27,7 +32,12 @@ export default function CrashGameRoomDemo({ onBack }) {
 
     setCountdown(5);
     setMultiplier(1.0);
-    setRocketPos({ x: 0, y: 0 });
+
+    setRocketPos({
+      x: 20,
+      y: 10
+    });
+
     setFlightPoints([]);
 
     setPlayer({
@@ -41,6 +51,7 @@ export default function CrashGameRoomDemo({ onBack }) {
 
     intervalRef.current = setInterval(() => {
       timer -= 1;
+
       setCountdown(timer);
 
       if (timer <= 0) {
@@ -58,29 +69,36 @@ export default function CrashGameRoomDemo({ onBack }) {
     crashPointRef.current = +(1.5 + Math.random() * 4).toFixed(2);
 
     let currentMultiplier = 1;
+
     let x = 20;
     let y = 10;
 
     intervalRef.current = setInterval(() => {
       if (statusRef.current !== "RUNNING") return;
 
+      // 📈 multiplier growth
       const growth = 0.015 + currentMultiplier * 0.018;
+
       currentMultiplier += growth;
+
       currentMultiplier = +currentMultiplier.toFixed(2);
 
       setMultiplier(currentMultiplier);
 
-      // ✈️ Smooth aviation flight movement
+      // ✈️ smooth aviation movement
       x += 2.2 + currentMultiplier * 0.45;
       y += 0.9 + currentMultiplier * 0.55;
 
-      // keep plane inside screen
+      // keep plane visible
       if (x > 320) x = 320;
       if (y > 220) y = 220;
 
-      setRocketPos({ x, y });
+      setRocketPos({
+        x,
+        y
+      });
 
-      // 📈 Flight path
+      // 📈 graph points
       setFlightPoints((prev) => [
         ...prev,
         {
@@ -89,7 +107,7 @@ export default function CrashGameRoomDemo({ onBack }) {
         }
       ]);
 
-      // 💰 Live payout updates
+      // 💰 live payout
       if (!player.cashedOut) {
         const liveProfit = +(
           player.bet * currentMultiplier - player.bet
@@ -101,14 +119,14 @@ export default function CrashGameRoomDemo({ onBack }) {
         }));
       }
 
-      // 💥 Crash
+      // 💥 crash
       if (currentMultiplier >= crashPointRef.current) {
         clearInterval(intervalRef.current);
 
         setStatus("CRASHED");
         statusRef.current = "CRASHED";
 
-        // 🔁 Auto restart
+        // 🔁 auto restart
         setTimeout(() => {
           startBettingPhase();
         }, 4000);
@@ -140,12 +158,16 @@ export default function CrashGameRoomDemo({ onBack }) {
 
   return (
     <div style={styles.container}>
-      <h1 style={{ marginBottom: 5 }}>✈️ AVIATION CRASH</h1>
+      <h1 style={{ marginBottom: 5 }}>
+        ✈️ AVIATION CRASH
+      </h1>
 
       {/* STATUS */}
       <div style={{ marginBottom: 15, opacity: 0.8 }}>
         {status === "BETTING" && (
-          <span>Next flight in {countdown}s</span>
+          <span>
+            Next flight in {countdown}s
+          </span>
         )}
 
         {status === "RUNNING" && (
@@ -169,22 +191,29 @@ export default function CrashGameRoomDemo({ onBack }) {
       <div
         style={{
           ...styles.multiplier,
-          color: status === "CRASHED" ? "red" : "#22c55e"
+          color:
+            status === "CRASHED"
+              ? "red"
+              : "#22c55e"
         }}
       >
         {multiplier.toFixed(2)}x
       </div>
 
-      {/* GAME SCREEN */}
+      {/* GAME AREA */}
       <div style={styles.gameArea}>
-        {/* GRAPH LINE */}
+
+        {/* GRAPH */}
         <svg style={styles.svg}>
           <polyline
             fill="none"
             stroke="#22c55e"
             strokeWidth="4"
             points={flightPoints
-              .map((p) => `${p.x},${250 - p.y}`)
+              .map(
+                (p) =>
+                  `${p.x},${250 - p.y}`
+              )
               .join(" ")}
           />
         </svg>
@@ -195,7 +224,11 @@ export default function CrashGameRoomDemo({ onBack }) {
             ...styles.rocket,
             left: `${rocketPos.x}px`,
             bottom: `${rocketPos.y}px`,
-            transform: `translate(-50%, 50%) rotate(${Math.min(multiplier * 8, 35)}deg)`
+            transform: `translate(-50%, 50%) rotate(${Math.min(
+              multiplier * 8,
+              35
+            )}deg)`
+          }}
         >
           ✈️
         </div>
@@ -207,55 +240,96 @@ export default function CrashGameRoomDemo({ onBack }) {
           Bet Amount: ₦{player.bet}
         </div>
 
-        {!player.cashedOut && status === "RUNNING" && (
-          <>
-            <div style={{ color: "#22c55e", fontSize: 22 }}>
-              ₦{(player.bet + player.profit).toFixed(2)}
-            </div>
+        {!player.cashedOut &&
+          status === "RUNNING" && (
+            <>
+              <div
+                style={{
+                  color: "#22c55e",
+                  fontSize: 24,
+                  fontWeight: "bold"
+                }}
+              >
+                ₦
+                {(
+                  player.bet +
+                  player.profit
+                ).toFixed(2)}
+              </div>
 
-            <div style={{ opacity: 0.7, marginTop: 5 }}>
-              Live Profit: +₦{player.profit.toFixed(2)}
-            </div>
-          </>
-        )}
+              <div
+                style={{
+                  opacity: 0.7,
+                  marginTop: 5
+                }}
+              >
+                Live Profit: +₦
+                {player.profit.toFixed(2)}
+              </div>
+            </>
+          )}
 
         {player.cashedOut && (
           <div style={{ color: "gold" }}>
             <div>
-              Cashed Out @ {player.cashoutMultiplier?.toFixed(2)}x
+              Cashed Out @{" "}
+              {player.cashoutMultiplier?.toFixed(
+                2
+              )}
+              x
             </div>
 
             <div style={{ marginTop: 5 }}>
               Won ₦
-              {(player.bet + player.profit).toFixed(2)}
+              {(
+                player.bet +
+                player.profit
+              ).toFixed(2)}
             </div>
           </div>
         )}
 
-        {status === "CRASHED" && !player.cashedOut && (
-          <div style={{ color: "red", marginTop: 10 }}>
-            Lost ₦{player.bet}
-          </div>
-        )}
+        {status === "CRASHED" &&
+          !player.cashedOut && (
+            <div
+              style={{
+                color: "red",
+                marginTop: 10
+              }}
+            >
+              Lost ₦{player.bet}
+            </div>
+          )}
       </div>
 
       {/* CASHOUT BUTTON */}
       <button
         onClick={cashout}
-        disabled={status !== "RUNNING" || player.cashedOut}
+        disabled={
+          status !== "RUNNING" ||
+          player.cashedOut
+        }
         style={{
           ...styles.cashoutButton,
           opacity:
-            status !== "RUNNING" || player.cashedOut ? 0.5 : 1
+            status !== "RUNNING" ||
+            player.cashedOut
+              ? 0.5
+              : 1
         }}
       >
         {player.cashedOut
           ? "CASHED OUT"
-          : `CASH OUT @ ${multiplier.toFixed(2)}x`}
+          : `CASH OUT @ ${multiplier.toFixed(
+              2
+            )}x`}
       </button>
 
       {/* BACK BUTTON */}
-      <button onClick={onBack} style={styles.backButton}>
+      <button
+        onClick={onBack}
+        style={styles.backButton}
+      >
         ← Back
       </button>
     </div>
@@ -273,7 +347,7 @@ const styles = {
   },
 
   multiplier: {
-    fontSize: 50,
+    fontSize: 52,
     fontWeight: "bold",
     marginBottom: 15
   },
@@ -281,7 +355,8 @@ const styles = {
   gameArea: {
     position: "relative",
     height: 280,
-    background: "linear-gradient(to top, #111827, #0f172a)",
+    background:
+      "linear-gradient(to top, #111827, #0f172a)",
     borderRadius: 20,
     overflow: "hidden",
     marginBottom: 20,
@@ -298,8 +373,10 @@ const styles = {
   rocket: {
     position: "absolute",
     fontSize: 42,
-    filter: "drop-shadow(0 0 10px #22c55e)",
-    transition: "all 0.04s linear"
+    filter:
+      "drop-shadow(0 0 10px #22c55e)",
+    transition: "all 0.04s linear",
+    zIndex: 10
   },
 
   card: {
