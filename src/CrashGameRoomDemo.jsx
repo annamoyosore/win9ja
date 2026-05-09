@@ -6,8 +6,8 @@ export default function CrashGameRoomDemo({ onBack }) {
   const [multiplier, setMultiplier] = useState(1.0);
 
   const [rocketPos, setRocketPos] = useState({
-    x: 20,
-    y: 10
+    x: 0,
+    y: 0
   });
 
   const [flightPoints, setFlightPoints] = useState([]);
@@ -34,8 +34,8 @@ export default function CrashGameRoomDemo({ onBack }) {
     setMultiplier(1.0);
 
     setRocketPos({
-      x: 20,
-      y: 10
+      x: 0,
+      y: 0
     });
 
     setFlightPoints([]);
@@ -50,7 +50,7 @@ export default function CrashGameRoomDemo({ onBack }) {
     let timer = 5;
 
     intervalRef.current = setInterval(() => {
-      timer -= 1;
+      timer--;
 
       setCountdown(timer);
 
@@ -70,13 +70,13 @@ export default function CrashGameRoomDemo({ onBack }) {
 
     let currentMultiplier = 1;
 
-    let x = 20;
-    let y = 10;
+    let x = 0;
+    let y = 0;
 
     intervalRef.current = setInterval(() => {
       if (statusRef.current !== "RUNNING") return;
 
-      // 📈 multiplier growth
+      // 📈 MULTIPLIER GROWTH
       const growth = 0.015 + currentMultiplier * 0.018;
 
       currentMultiplier += growth;
@@ -85,20 +85,16 @@ export default function CrashGameRoomDemo({ onBack }) {
 
       setMultiplier(currentMultiplier);
 
-      // ✈️ smooth aviation movement
-      x += 2.2 + currentMultiplier * 0.45;
-      y += 0.9 + currentMultiplier * 0.55;
-
-      // keep plane visible
-      if (x > 320) x = 320;
-      if (y > 220) y = 220;
+      // ✈️ LIVE FLIGHT MOVEMENT
+      x += 2 + currentMultiplier * 0.45;
+      y += 1 + currentMultiplier * 0.55;
 
       setRocketPos({
         x,
         y
       });
 
-      // 📈 graph points
+      // 📈 LIVE GRAPH
       setFlightPoints((prev) => [
         ...prev,
         {
@@ -107,7 +103,7 @@ export default function CrashGameRoomDemo({ onBack }) {
         }
       ]);
 
-      // 💰 live payout
+      // 💰 LIVE PAYOUT
       if (!player.cashedOut) {
         const liveProfit = +(
           player.bet * currentMultiplier - player.bet
@@ -119,14 +115,13 @@ export default function CrashGameRoomDemo({ onBack }) {
         }));
       }
 
-      // 💥 crash
+      // 💥 CRASH
       if (currentMultiplier >= crashPointRef.current) {
         clearInterval(intervalRef.current);
 
         setStatus("CRASHED");
         statusRef.current = "CRASHED";
 
-        // 🔁 auto restart
         setTimeout(() => {
           startBettingPhase();
         }, 4000);
@@ -158,50 +153,61 @@ export default function CrashGameRoomDemo({ onBack }) {
 
   return (
     <div style={styles.container}>
-      <h1 style={{ marginBottom: 5 }}>
+      <h1 style={styles.title}>
         ✈️ AVIATION CRASH
       </h1>
 
       {/* STATUS */}
-      <div style={{ marginBottom: 15, opacity: 0.8 }}>
+      <div style={styles.status}>
         {status === "BETTING" && (
           <span>
-            Next flight in {countdown}s
+            Next Flight In {countdown}s
           </span>
         )}
 
         {status === "RUNNING" && (
-          <span style={{ color: "lime" }}>
-            Flight is live ✈️
+          <span style={{ color: "#22c55e" }}>
+            Flight Is Live ✈️
           </span>
         )}
 
         {status === "CRASHED" && (
           <span style={{ color: "red" }}>
-            💥 Flew away @ {multiplier.toFixed(2)}x
+            💥 Flew Away @{" "}
+            {multiplier.toFixed(2)}x
           </span>
         )}
       </div>
 
       {/* MULTIPLIER */}
-      <div style={{ marginBottom: 8, opacity: 0.7 }}>
-        Flight Taking Off...
-      </div>
-
-      <div
-        style={{
-          ...styles.multiplier,
-          color:
-            status === "CRASHED"
-              ? "red"
-              : "#22c55e"
-        }}
-      >
+      <div style={styles.multiplier}>
         {multiplier.toFixed(2)}x
       </div>
 
       {/* GAME AREA */}
       <div style={styles.gameArea}>
+
+        {/* SKY GLOW */}
+        <div style={styles.skyGlow} />
+
+        {/* CLOUDS */}
+        <div
+          style={{
+            ...styles.cloud1,
+            left: `${(multiplier * 35) % 120}%`
+          }}
+        >
+          ☁️
+        </div>
+
+        <div
+          style={{
+            ...styles.cloud2,
+            left: `${(multiplier * 22) % 100}%`
+          }}
+        >
+          ☁️
+        </div>
 
         {/* GRAPH */}
         <svg style={styles.svg}>
@@ -209,6 +215,8 @@ export default function CrashGameRoomDemo({ onBack }) {
             fill="none"
             stroke="#22c55e"
             strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
             points={flightPoints
               .map(
                 (p) =>
@@ -218,16 +226,37 @@ export default function CrashGameRoomDemo({ onBack }) {
           />
         </svg>
 
-        {/* AIRPLANE */}
+        {/* ENGINE FIRE */}
         <div
           style={{
-            ...styles.rocket,
-            left: `${rocketPos.x}px`,
-            bottom: `${rocketPos.y}px`,
-            transform: `translate(-50%, 50%) rotate(${Math.min(
-              multiplier * 8,
-              35
-            )}deg)`
+            ...styles.fire,
+            opacity:
+              status === "RUNNING" ? 1 : 0,
+            transform: `
+              translate(
+                ${rocketPos.x - 12}px,
+                -${rocketPos.y - 8}px
+              )
+            `
+          }}
+        >
+          🔥
+        </div>
+
+        {/* LIVE AIRPLANE */}
+        <div
+          style={{
+            ...styles.airplane,
+            transform: `
+              translate(
+                ${rocketPos.x}px,
+                -${rocketPos.y}px
+              )
+              rotate(${Math.min(
+                multiplier * 10,
+                40
+              )}deg)
+            `
           }}
         >
           ✈️
@@ -243,13 +272,7 @@ export default function CrashGameRoomDemo({ onBack }) {
         {!player.cashedOut &&
           status === "RUNNING" && (
             <>
-              <div
-                style={{
-                  color: "#22c55e",
-                  fontSize: 24,
-                  fontWeight: "bold"
-                }}
-              >
+              <div style={styles.liveMoney}>
                 ₦
                 {(
                   player.bet +
@@ -257,12 +280,7 @@ export default function CrashGameRoomDemo({ onBack }) {
                 ).toFixed(2)}
               </div>
 
-              <div
-                style={{
-                  opacity: 0.7,
-                  marginTop: 5
-                }}
-              >
+              <div style={styles.liveProfit}>
                 Live Profit: +₦
                 {player.profit.toFixed(2)}
               </div>
@@ -279,7 +297,7 @@ export default function CrashGameRoomDemo({ onBack }) {
               x
             </div>
 
-            <div style={{ marginTop: 5 }}>
+            <div style={{ marginTop: 6 }}>
               Won ₦
               {(
                 player.bet +
@@ -291,12 +309,7 @@ export default function CrashGameRoomDemo({ onBack }) {
 
         {status === "CRASHED" &&
           !player.cashedOut && (
-            <div
-              style={{
-                color: "red",
-                marginTop: 10
-              }}
-            >
+            <div style={styles.loss}>
               Lost ₦{player.bet}
             </div>
           )}
@@ -325,7 +338,7 @@ export default function CrashGameRoomDemo({ onBack }) {
             )}x`}
       </button>
 
-      {/* BACK BUTTON */}
+      {/* BACK */}
       <button
         onClick={onBack}
         style={styles.backButton}
@@ -346,67 +359,82 @@ const styles = {
     overflow: "hidden"
   },
 
+  title: {
+    marginBottom: 10
+  },
+
+  status: {
+    marginBottom: 15,
+    opacity: 0.8
+  },
+
   multiplier: {
-    fontSize: 52,
+    fontSize: 56,
     fontWeight: "bold",
-    marginBottom: 15
+    color: "#22c55e",
+    marginBottom: 20
   },
 
   gameArea: {
     position: "relative",
-    height: 280,
-    background:
-      "linear-gradient(to top, #111827, #0f172a)",
+    height: 300,
     borderRadius: 20,
     overflow: "hidden",
     marginBottom: 20,
-    border: "1px solid #1e293b"
+    border: "1px solid #1e293b",
+    background:
+      "linear-gradient(to top, #111827, #0f172a)"
+  },
+
+  skyGlow: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "radial-gradient(circle at bottom left, rgba(34,197,94,0.15), transparent 60%)",
+    zIndex: 0
+  },
+
+  cloud1: {
+    position: "absolute",
+    top: 40,
+    fontSize: 34,
+    opacity: 0.25,
+    transition: "left 0.04s linear",
+    zIndex: 1
+  },
+
+  cloud2: {
+    position: "absolute",
+    top: 100,
+    fontSize: 26,
+    opacity: 0.2,
+    transition: "left 0.04s linear",
+    zIndex: 1
   },
 
   svg: {
     position: "absolute",
     inset: 0,
     width: "100%",
-    height: "100%"
+    height: "100%",
+    zIndex: 2
   },
 
-  rocket: {
+  airplane: {
     position: "absolute",
-    fontSize: 42,
+    bottom: 20,
+    left: 20,
+    fontSize: 46,
+    zIndex: 10,
+    transition: "transform 0.04s linear",
     filter:
-      "drop-shadow(0 0 10px #22c55e)",
-    transition: "all 0.04s linear",
-    zIndex: 10
+      "drop-shadow(0 0 12px #22c55e)"
   },
 
-  card: {
-    background: "#111827",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    border: "1px solid #1e293b"
-  },
-
-  cashoutButton: {
-    width: "100%",
-    padding: 16,
-    borderRadius: 14,
-    border: "none",
-    background: "#22c55e",
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    cursor: "pointer"
-  },
-
-  backButton: {
-    marginTop: 15,
-    padding: 12,
-    width: "100%",
-    borderRadius: 12,
-    border: "none",
-    background: "#1e293b",
-    color: "white",
-    cursor: "pointer"
-  }
-};
+  fire: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    fontSize: 20,
+    zIndex: 9,
+    transition: "transform
