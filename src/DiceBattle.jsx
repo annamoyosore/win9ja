@@ -8,9 +8,9 @@ function rollDice() { return Math.floor(Math.random() * 6) + 1; }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-// 🎯 Convert board position (1-100) to percentage coords on 10x10 zigzag board function getCoords(pos) { const index = pos - 1; const row = Math.floor(index / 10); let col = index % 10;
+// 🎯 Convert board position to x/y on zigzag board function getCoords(pos) { const index = pos - 1; const row = Math.floor(index / 10); let col = index % 10;
 
-// zigzag correction if (row % 2 === 1) { col = 9 - col; }
+if (row % 2 === 1) col = 9 - col;
 
 const x = col * 10; const y = (9 - row) * 10;
 
@@ -36,15 +36,17 @@ return p;
 
 }
 
-async function move(start, steps, setter, isPlayer) { let p = start;
+// 🚀 FIXED SMOOTH MOVE async function move(start, steps, setter, isPlayer) { let current = start;
 
 for (let i = 0; i < steps; i++) {
-  await sleep(80);
-  p += 1;
-  setter(p);
+  await sleep(180);
+
+  current += 1;
+
+  setter((prev) => prev + 1);
 }
 
-const final = applyEffects(p, isPlayer);
+const final = applyEffects(current, isPlayer);
 setter(final);
 
 if (final === SIZE) setWinner(isPlayer ? "player" : "bot");
@@ -105,15 +107,8 @@ return ( <div style={styles.container}> <h3>🐍 Snake & Ladder</h3>
   <div style={styles.boardWrap}>
     <img src={boardImg} alt="board" style={styles.boardImg} />
 
-    {/* PLAYER TOKEN */}
-    <div style={{ ...styles.token, ...pPos, background: "red" }}>
-      P
-    </div>
-
-    {/* BOT TOKEN */}
-    <div style={{ ...styles.token, ...bPos, background: "blue" }}>
-      B
-    </div>
+    <div style={{ ...styles.token, ...pPos, background: "red" }}>P</div>
+    <div style={{ ...styles.token, ...bPos, background: "blue" }}>B</div>
   </div>
 
   <div style={styles.info}>
