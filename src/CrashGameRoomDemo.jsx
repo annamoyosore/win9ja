@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function CrashGameRoomDemo({ players = [], onBack }) {
+export default function CrashGameRoomDemo({ onBack }) {
+  const [status, setStatus] = useState("BETTING"); // BETTING | RUNNING | CRASHED
+  const [countdown, setCountdown] = useState(5);
   const [multiplier, setMultiplier] = useState(1.0);
-  const [status, setStatus] = useState("RUNNING"); // RUNNING | CRASHED
+  const [rocketPos, setRocketPos] = useState({ x: 0, y: 0 });
+  const [flightPoints, setFlightPoints] = useState([]);
 
-  const [rocketY, setRocketY] = useState(0);
+  const statusRef = useRef("BETTING");
+  const intervalRef = useRef(null);
+  const crashPointRef = useRef(2.0);
 
-  // 💰 PLAYER STATE (important fix)
   const [player, setPlayer] = useState({
     bet: 1000,
     cashedOut: false,
@@ -14,162 +18,309 @@ export default function CrashGameRoomDemo({ players = [], onBack }) {
     profit: 0
   });
 
-  const intervalRef = useRef(null);
-  const crashPointRef = useRef(null);
+  // 🚀 START BETTING PHASE
+  function startBettingPhase() {
+    clearInterval(intervalRef.current);
 
-  // 🚀 START GAME ENGINE (GLOBAL RUNNER)
-  function startGame() {
+    setStatus("BETTING");
+    statusRef.current = "BETTING";
+
+    setCountdown(5);
     setMultiplier(1.0);
-    setStatus("RUNNING");
-    setRocketY(0);
-
-    crashPointRef.current = +(3.2 + Math.random() * 3).toFixed(2);
-
-    intervalRef.current = setInterval(() => {
-      setMultiplier((m) => {
-        if (status !== "RUNNING") return m;
-
-        const growth = 0.02 + m * 0.02;
-        const next = +(m + growth).toFixed(2);
-
-        setRocketY((y) => y + 3 + m * 0.15);
-
-        // 💥 GLOBAL CRASH
-        if (next >= crashPointRef.current) {
-          clearInterval(intervalRef.current);
-          setStatus("CRASHED");
-        }
-
-        return next;
-      });
-    }, 100);
-  }
-
-  useEffect(() => {
-    startGame();
-    return () => clearInterval(intervalRef.current);
-  }, []);
-
-  // 💰 PLAYER CASHOUT (DOES NOT STOP GAME)
-  function cashout() {
-    if (status !== "RUNNING" || player.cashedOut) return;
-
-    const payout = player.bet * multiplier;
-    const profit = payout - player.bet;
+    setRocketPos({ x: 0, y: 0 });
+    setFlightPoints([]);
 
     setPlayer({
-      ...player,
-      cashedOut: true,
-      cashoutMultiplier: multiplier,
-      profit
+      bet: 1000,
+      cashedOut: false,
+      cashoutMultiplier: null,
+      profit: 0
+    });
+
+    let timer = 5;
+
+    intervalRef.current = setInterval(() => {
+      timer -= 1;
+      setCountdown(timer);
+
+      if (timer <= 0) {
+        clearInterval(intervalRef.current);
+        startFlight();
+      }
+    }, 1000);
+  }
+
+  // ✈️ START FLIGHT
+  function startFlight() {
+    setStatus("RUNNING");
+    statusRef.current = "RUNNING";
+
+    crashPointRef.current = +(1.5 + Math.random() * 4).toFixed(2);
+
+    let currentMultiplier = 1;
+    let x = 0;
+    let y = 0;
+
+    intervalRef.current = setInterval(() => {
+      if (statusRef.current !== "RUNNING") return;
+
+      const growth = 0.015 + currentMultiplier * 0.018;
+      currentMultiplier += growth;
+      currentMultiplier = +currentMultiplier.toFixed(2);
+
+      setMultiplier(currentMultiplier);
+
+      // ✈️ Diagonal aviation movement
+      x += 6;
+      y += 2 + currentMultiplier * 1.2;
+
+      setRocketPos({ x, y });
+
+      // 📈 Flight path
+      setFlightPoints((prev) => [
+        ...prev,
+        {
+          x,
+          y
+        }
+      ]);
+
+      // 💰 Live payout updates
+      if (!player.cashedOut) {
+        const liveProfit = +(
+          player.bet * currentMultiplier - player.bet
+        ).toFixed(2);
+
+        setPlayer((prev) => ({
+          ...prev,
+          profit: liveProfit
+        }));
+      }
+
+      // 💥 Crash
+      if (currentMultiplier >= crashPointRef.current) {
+        clearInterval(intervalRef.current);
+
+        setStatus("CRASHED");
+        statusRef.current = "CRASHED";
+
+        // 🔁 Auto restart
+        setTimeout(() => {
+          startBettingPhase();
+        }, 4000);
+      }
+    }, 40);
+  }
+
+  // 💰 CASHOUT
+  function cashout() {
+    if (statusRef.current !== "RUNNING") return;
+
+    setPlayer((prev) => {
+      if (prev.cashedOut) return prev;
+
+      return {
+        ...prev,
+        cashedOut: true,
+        cashoutMultiplier: multiplier,
+        profit: +(prev.bet * multiplier - prev.bet).toFixed(2)
+      };
     });
   }
 
+  useEffect(() => {
+    startBettingPhase();
+
+    return () => clearInterval(intervalRef.current);
+  }, []);
+
   return (
     <div style={styles.container}>
+      <h1 style={{ marginBottom: 5 }}>✈️ AVIATION CRASH</h1>
 
-      <h2>🚀 CRASH LIVE ENGINE</h2>
+      {/* STATUS */}
+      <div style={{ marginBottom: 15, opacity: 0.8 }}>
+        {status === "BETTING" && (
+          <span>Next flight in {countdown}s</span>
+        )}
 
-      {/* 🚀 LIVE MULTIPLIER (ALWAYS RUNNING) */}
-      <div style={styles.multiplier}>
-        {status === "CRASHED" ? (
-          <span style={{ color: "red" }}>
-            💥 CRASHED @ {multiplier.toFixed(2)}x
-          </span>
-        ) : (
+        {status === "RUNNING" && (
           <span style={{ color: "lime" }}>
-            {multiplier.toFixed(2)}x
+            Flight is live ✈️
+          </span>
+        )}
+
+        {status === "CRASHED" && (
+          <span style={{ color: "red" }}>
+            💥 Flew away @ {multiplier.toFixed(2)}x
           </span>
         )}
       </div>
 
-      {/* 🚀 ROCKET (ALWAYS MOVING UNTIL CRASH) */}
+      {/* MULTIPLIER */}
       <div
         style={{
-          ...styles.rocket,
-          transform: `translateY(-${rocketY}px)`
+          ...styles.multiplier,
+          color: status === "CRASHED" ? "red" : "#22c55e"
         }}
       >
-        🚀
+        {multiplier.toFixed(2)}x
       </div>
 
-      {/* 💰 PLAYER PANEL */}
-      <div style={styles.panel}>
-        <div>Bet: ₦{player.bet}</div>
+      {/* GAME SCREEN */}
+      <div style={styles.gameArea}>
+        {/* GRAPH LINE */}
+        <svg style={styles.svg}>
+          <polyline
+            fill="none"
+            stroke="#22c55e"
+            strokeWidth="4"
+            points={flightPoints
+              .map((p) => `${p.x},${250 - p.y}`)
+              .join(" ")}
+          />
+        </svg>
 
-        <div style={{ marginTop: 10 }}>
-          {player.cashedOut ? (
-            <span style={{ color: "gold" }}>
-              Cashed out @ {player.cashoutMultiplier.toFixed(2)}x
-              <br />
-              Profit: ₦{player.profit.toFixed(2)}
-            </span>
-          ) : (
-            <span>Not cashed out</span>
-          )}
+        {/* AIRPLANE */}
+        <div
+          style={{
+            ...styles.rocket,
+            left: rocketPos.x,
+            bottom: rocketPos.y
+          }}
+        >
+          ✈️
         </div>
       </div>
 
-      {/* 💰 CASHOUT BUTTON */}
+      {/* PLAYER CARD */}
+      <div style={styles.card}>
+        <div style={{ marginBottom: 10 }}>
+          Bet Amount: ₦{player.bet}
+        </div>
+
+        {!player.cashedOut && status === "RUNNING" && (
+          <>
+            <div style={{ color: "#22c55e", fontSize: 22 }}>
+              ₦{(player.bet + player.profit).toFixed(2)}
+            </div>
+
+            <div style={{ opacity: 0.7, marginTop: 5 }}>
+              Live Profit: +₦{player.profit.toFixed(2)}
+            </div>
+          </>
+        )}
+
+        {player.cashedOut && (
+          <div style={{ color: "gold" }}>
+            <div>
+              Cashed Out @ {player.cashoutMultiplier?.toFixed(2)}x
+            </div>
+
+            <div style={{ marginTop: 5 }}>
+              Won ₦
+              {(player.bet + player.profit).toFixed(2)}
+            </div>
+          </div>
+        )}
+
+        {status === "CRASHED" && !player.cashedOut && (
+          <div style={{ color: "red", marginTop: 10 }}>
+            Lost ₦{player.bet}
+          </div>
+        )}
+      </div>
+
+      {/* CASHOUT BUTTON */}
       <button
         onClick={cashout}
         disabled={status !== "RUNNING" || player.cashedOut}
-        style={styles.button}
+        style={{
+          ...styles.cashoutButton,
+          opacity:
+            status !== "RUNNING" || player.cashedOut ? 0.5 : 1
+        }}
       >
-        CASH OUT
+        {player.cashedOut
+          ? "CASHED OUT"
+          : `CASH OUT @ ${multiplier.toFixed(2)}x`}
       </button>
 
-      {/* 💥 LOSS MESSAGE */}
-      {status === "CRASHED" && !player.cashedOut && (
-        <div style={{ color: "red", marginTop: 10 }}>
-          You lost ₦{player.bet}
-        </div>
-      )}
-
-      {/* 🔁 BACK */}
-      <button onClick={onBack} style={{ marginTop: 20 }}>
+      {/* BACK BUTTON */}
+      <button onClick={onBack} style={styles.backButton}>
         ← Back
       </button>
-
-      {/* STATUS */}
-      <div style={{ marginTop: 10, opacity: 0.7 }}>
-        {status === "RUNNING" && "Flight is live ✈️ (others can still cash out)"}
-        {status === "CRASHED" && "Round ended 💥"}
-      </div>
-
     </div>
   );
 }
 
 const styles = {
   container: {
-    textAlign: "center",
-    padding: 20,
+    minHeight: "100vh",
     background: "#020617",
-    color: "#fff",
-    minHeight: "100vh"
+    color: "white",
+    padding: 20,
+    textAlign: "center",
+    overflow: "hidden"
   },
+
   multiplier: {
-    fontSize: 42,
+    fontSize: 50,
     fontWeight: "bold",
-    margin: 20
+    marginBottom: 15
   },
+
+  gameArea: {
+    position: "relative",
+    height: 280,
+    background: "linear-gradient(to top, #111827, #0f172a)",
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 20,
+    border: "1px solid #1e293b"
+  },
+
+  svg: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%"
+  },
+
   rocket: {
-    fontSize: 40,
-    transition: "transform 0.1s linear"
+    position: "absolute",
+    fontSize: 34,
+    transition: "all 0.04s linear"
   },
-  panel: {
+
+  card: {
     background: "#111827",
-    padding: 15,
-    marginTop: 20,
-    borderRadius: 10
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    border: "1px solid #1e293b"
   },
-  button: {
-    marginTop: 20,
-    padding: 12,
+
+  cashoutButton: {
+    width: "100%",
+    padding: 16,
+    borderRadius: 14,
+    border: "none",
+    background: "#22c55e",
+    color: "white",
     fontSize: 18,
-    borderRadius: 10,
-    background: "gold",
-    border: "none"
+    fontWeight: "bold",
+    cursor: "pointer"
+  },
+
+  backButton: {
+    marginTop: 15,
+    padding: 12,
+    width: "100%",
+    borderRadius: 12,
+    border: "none",
+    background: "#1e293b",
+    color: "white",
+    cursor: "pointer"
   }
 };
