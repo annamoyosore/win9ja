@@ -8,21 +8,29 @@ function rollDice() { return Math.floor(Math.random() * 6) + 1; }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+// 🎯 Convert board position (1-100) to percentage coords on 10x10 zigzag board function getCoords(pos) { const index = pos - 1; const row = Math.floor(index / 10); let col = index % 10;
+
+// zigzag correction if (row % 2 === 1) { col = 9 - col; }
+
+const x = col * 10; const y = (9 - row) * 10;
+
+return { left: ${x}%, top: ${y}% }; }
+
 export default function SnakeAndLadder() { const [player, setPlayer] = useState(1); const [bot, setBot] = useState(1); const [dice, setDice] = useState(1); const [turn, setTurn] = useState("player"); const [winner, setWinner] = useState(null); const [moving, setMoving] = useState(false); const [msg, setMsg] = useState(""); const [skipP, setSkipP] = useState(0); const [skipB, setSkipB] = useState(0);
 
 function applyEffects(pos, isPlayer) { let p = pos;
 
-if (snakes[p]) { setMsg("🐍 Snake! Down"); p = snakes[p]; }
-if (ladders[p]) { setMsg("🪜 Ladder! Up"); p = ladders[p]; }
-if (potholes[p]) { setMsg("🕳️ Hole! Back"); p = Math.max(1, p + potholes[p]); }
+if (snakes[p]) { setMsg("🐍 Snake!"); p = snakes[p]; }
+if (ladders[p]) { setMsg("🪜 Ladder!"); p = ladders[p]; }
+if (potholes[p]) { setMsg("🕳️ Hole!"); p = Math.max(1, p + potholes[p]); }
 
 if (missTurns[p]) {
-  setMsg("⏳ Miss turns");
+  setMsg("⏳ Miss turn");
   if (isPlayer) setSkipP(missTurns[p]);
   else setSkipB(missTurns[p]);
 }
 
-if (dryBack[p]) { setMsg("🌪️ Reset zone"); p = dryBack[p]; }
+if (dryBack[p]) { setMsg("🌪️ Reset"); p = dryBack[p]; }
 
 return p;
 
@@ -88,20 +96,22 @@ botPlay();
 
 function reset() { setPlayer(1); setBot(1); setDice(1); setTurn("player"); setWinner(null); setMoving(false); setMsg(""); setSkipP(0); setSkipB(0); }
 
+const pPos = getCoords(player); const bPos = getCoords(bot);
+
 return ( <div style={styles.container}> <h3>🐍 Snake & Ladder</h3>
 
 <p style={styles.msg}>{msg}</p>
 
-  {/* REAL BOARD IMAGE */}
   <div style={styles.boardWrap}>
     <img src={boardImg} alt="board" style={styles.boardImg} />
 
-    {/* TOKENS */}
-    <div style={{ ...styles.token, left: "20%", top: "20%", background: "red" }}>
+    {/* PLAYER TOKEN */}
+    <div style={{ ...styles.token, ...pPos, background: "red" }}>
       P
     </div>
 
-    <div style={{ ...styles.token, left: "25%", top: "25%", background: "blue" }}>
+    {/* BOT TOKEN */}
+    <div style={{ ...styles.token, ...bPos, background: "blue" }}>
       B
     </div>
   </div>
@@ -117,10 +127,8 @@ return ( <div style={styles.container}> <h3>🐍 Snake & Ladder</h3>
     </button>
     <button onClick={reset}>Reset</button>
   </div>
-
-  <p style={styles.note}>✔ board.png imported from src</p>
 </div>
 
 ); }
 
-const styles = { container: { background: "#0f172a", color: "white", minHeight: "100vh", textAlign: "center", padding: 10 }, boardWrap: { position: "relative", width: 300, height: 300, margin: "10px auto" }, boardImg: { width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }, token: { position: "absolute", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "white", fontWeight: "bold" }, info: { marginTop: 10 }, btns: { marginTop: 10, display: "flex", gap: 10, justifyContent: "center" }, msg: { fontSize: 12, opacity: 0.8 }, note: { fontSize: 11, opacity: 0.7 } };
+const styles = { container: { background: "#0f172a", color: "white", minHeight: "100vh", textAlign: "center", padding: 10 }, boardWrap: { position: "relative", width: 300, height: 300, margin: "10px auto" }, boardImg: { width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }, token: { position: "absolute", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "white", fontWeight: "bold", transform: "translate(-50%, -50%)" }, info: { marginTop: 10 }, btns: { marginTop: 10, display: "flex", gap: 10, justifyContent: "center" }, msg: { fontSize: 12, opacity: 0.8 } };
