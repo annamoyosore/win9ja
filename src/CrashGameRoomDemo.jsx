@@ -1,412 +1,248 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
-export default function CrashGameRoomDemo({ onBack }) {
-  const [status, setStatus] = useState("BETTING");
+export default function Horse() {
+  const horses = [
+    { id: 1, name: "Thunder" },
+    { id: 2, name: "Blaze" },
+    { id: 3, name: "Storm" },
+    { id: 4, name: "Rocket" },
+  ];
+
+  const [positions, setPositions] = useState({
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+  });
+
+  const [selectedHorse, setSelectedHorse] = useState(null);
+  const [raceStarted, setRaceStarted] = useState(false);
+  const [winner, setWinner] = useState(null);
   const [countdown, setCountdown] = useState(5);
-  const [multiplier, setMultiplier] = useState(1.0);
+  const [balance, setBalance] = useState(1000);
+  const [betAmount, setBetAmount] = useState(100);
+  const [message, setMessage] = useState(
+    "Pick a horse and start the race."
+  );
 
-  const [rocketPos, setRocketPos] = useState({
-    x: 20,
-    y: 10
-  });
+  const raceRef = useRef(null);
+  const countdownRef = useRef(null);
 
-  const [flightPoints, setFlightPoints] = useState([]);
+  const resetRace = () => {
+    clearInterval(raceRef.current);
+    clearInterval(countdownRef.current);
 
-  const statusRef = useRef("BETTING");
-  const intervalRef = useRef(null);
-  const crashPointRef = useRef(2.0);
+    setPositions({
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+    });
 
-  const [player, setPlayer] = useState({
-    bet: 1000,
-    cashedOut: false,
-    cashoutMultiplier: null,
-    profit: 0
-  });
-
-  // 🚀 START BETTING PHASE
-  function startBettingPhase() {
-    clearInterval(intervalRef.current);
-
-    setStatus("BETTING");
-    statusRef.current = "BETTING";
-
+    setWinner(null);
+    setRaceStarted(false);
     setCountdown(5);
-    setMultiplier(1.0);
+    setMessage("Pick a horse and start the race.");
+  };
 
-    setRocketPos({
-      x: 20,
-      y: 10
-    });
+  const startRace = () => {
+    if (!selectedHorse) {
+      alert("Select a horse first");
+      return;
+    }
 
-    setFlightPoints([]);
+    if (betAmount > balance) {
+      alert("Insufficient balance");
+      return;
+    }
 
-    setPlayer({
-      bet: 1000,
-      cashedOut: false,
-      cashoutMultiplier: null,
-      profit: 0
-    });
+    setBalance((prev) => prev - betAmount);
 
-    let timer = 5;
+    let count = 5;
+    setCountdown(count);
 
-    intervalRef.current = setInterval(() => {
-      timer -= 1;
+    countdownRef.current = setInterval(() => {
+      count -= 1;
+      setCountdown(count);
 
-      setCountdown(timer);
-
-      if (timer <= 0) {
-        clearInterval(intervalRef.current);
-        startFlight();
+      if (count <= 0) {
+        clearInterval(countdownRef.current);
+        beginRace();
       }
     }, 1000);
-  }
+  };
 
-  // ✈️ START FLIGHT
-  function startFlight() {
-    setStatus("RUNNING");
-    statusRef.current = "RUNNING";
+  const beginRace = () => {
+    setRaceStarted(true);
+    setMessage("🏇 Race in progress...");
 
-    crashPointRef.current = +(1.5 + Math.random() * 4).toFixed(2);
+    raceRef.current = setInterval(() => {
+      setPositions((prev) => {
+        const updated = { ...prev };
 
-    let currentMultiplier = 1;
+        horses.forEach((horse) => {
+          updated[horse.id] += Math.random() * 7;
+        });
 
-    let x = 20;
-    let y = 10;
+        const winningHorse = horses.find(
+          (horse) => updated[horse.id] >= 90
+        );
 
-    intervalRef.current = setInterval(() => {
-      if (statusRef.current !== "RUNNING") return;
+        if (winningHorse) {
+          clearInterval(raceRef.current);
 
-      // 📈 multiplier growth
-      const growth = 0.015 + currentMultiplier * 0.018;
+          setWinner(winningHorse);
+          setRaceStarted(false);
 
-      currentMultiplier += growth;
-
-      currentMultiplier = +currentMultiplier.toFixed(2);
-
-      setMultiplier(currentMultiplier);
-
-      // ✈️ smooth aviation movement
-      x += 2.2 + currentMultiplier * 0.45;
-      y += 0.9 + currentMultiplier * 0.55;
-
-      // keep plane visible
-      if (x > 320) x = 320;
-      if (y > 220) y = 220;
-
-      setRocketPos({
-        x,
-        y
-      });
-
-      // 📈 graph points
-      setFlightPoints((prev) => [
-        ...prev,
-        {
-          x,
-          y
+          if (selectedHorse === winningHorse.id) {
+            const payout = betAmount * 3;
+            setBalance((prev) => prev + payout);
+            setMessage(`🎉 You won ₦${payout}`);
+          } else {
+            setMessage(`😢 ${winningHorse.name} won the race`);
+          }
         }
-      ]);
 
-      // 💰 live payout
-      if (!player.cashedOut) {
-        const liveProfit = +(
-          player.bet * currentMultiplier - player.bet
-        ).toFixed(2);
-
-        setPlayer((prev) => ({
-          ...prev,
-          profit: liveProfit
-        }));
-      }
-
-      // 💥 crash
-      if (currentMultiplier >= crashPointRef.current) {
-        clearInterval(intervalRef.current);
-
-        setStatus("CRASHED");
-        statusRef.current = "CRASHED";
-
-        // 🔁 auto restart
-        setTimeout(() => {
-          startBettingPhase();
-        }, 4000);
-      }
-    }, 40);
-  }
-
-  // 💰 CASHOUT
-  function cashout() {
-    if (statusRef.current !== "RUNNING") return;
-
-    setPlayer((prev) => {
-      if (prev.cashedOut) return prev;
-
-      return {
-        ...prev,
-        cashedOut: true,
-        cashoutMultiplier: multiplier,
-        profit: +(prev.bet * multiplier - prev.bet).toFixed(2)
-      };
-    });
-  }
+        return updated;
+      });
+    }, 120);
+  };
 
   useEffect(() => {
-    startBettingPhase();
-
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      clearInterval(raceRef.current);
+      clearInterval(countdownRef.current);
+    };
   }, []);
 
   return (
-    <div style={styles.container}>
-      <h1 style={{ marginBottom: 5 }}>
-        ✈️ AVIATION CRASH
-      </h1>
+    <div className="min-h-screen bg-green-900 text-white p-4">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-4xl font-bold text-center mb-5">
+          🏇 Horse Racing Demo
+        </h1>
 
-      {/* STATUS */}
-      <div style={{ marginBottom: 15, opacity: 0.8 }}>
-        {status === "BETTING" && (
-          <span>
-            Next flight in {countdown}s
-          </span>
-        )}
+        <div className="bg-black/30 rounded-3xl p-4 mb-6 flex flex-wrap gap-4 justify-between items-center">
+          <div>
+            <p className="text-lg">Balance</p>
+            <h2 className="text-3xl font-bold">₦{balance}</h2>
+          </div>
 
-        {status === "RUNNING" && (
-          <span style={{ color: "lime" }}>
-            Flight is live ✈️
-          </span>
-        )}
+          <div>
+            <p className="mb-1">Bet Amount</p>
+            <input
+              type="number"
+              value={betAmount}
+              onChange={(e) =>
+                setBetAmount(Number(e.target.value))
+              }
+              className="bg-gray-800 px-4 py-3 rounded-2xl text-white w-40"
+            />
+          </div>
 
-        {status === "CRASHED" && (
-          <span style={{ color: "red" }}>
-            💥 Flew away @ {multiplier.toFixed(2)}x
-          </span>
-        )}
-      </div>
-
-      {/* MULTIPLIER */}
-      <div style={{ marginBottom: 8, opacity: 0.7 }}>
-        Flight Taking Off...
-      </div>
-
-      <div
-        style={{
-          ...styles.multiplier,
-          color:
-            status === "CRASHED"
-              ? "red"
-              : "#22c55e"
-        }}
-      >
-        {multiplier.toFixed(2)}x
-      </div>
-
-      {/* GAME AREA */}
-      <div style={styles.gameArea}>
-
-        {/* GRAPH */}
-        <svg style={styles.svg}>
-          <polyline
-            fill="none"
-            stroke="#22c55e"
-            strokeWidth="4"
-            points={flightPoints
-              .map(
-                (p) =>
-                  `${p.x},${250 - p.y}`
-              )
-              .join(" ")}
-          />
-        </svg>
-
-        {/* AIRPLANE */}
-        <div
-          style={{
-            ...styles.rocket,
-            left: `${rocketPos.x}px`,
-            bottom: `${rocketPos.y}px`,
-            transform: `translate(-50%, 50%) rotate(${Math.min(
-              multiplier * 8,
-              35
-            )}deg)`
-          }}
-        >
-          ✈️
-        </div>
-      </div>
-
-      {/* PLAYER CARD */}
-      <div style={styles.card}>
-        <div style={{ marginBottom: 10 }}>
-          Bet Amount: ₦{player.bet}
+          <button
+            onClick={resetRace}
+            className="bg-red-500 hover:bg-red-600 px-5 py-3 rounded-2xl font-bold"
+          >
+            Reset
+          </button>
         </div>
 
-        {!player.cashedOut &&
-          status === "RUNNING" && (
-            <>
-              <div
-                style={{
-                  color: "#22c55e",
-                  fontSize: 24,
-                  fontWeight: "bold"
-                }}
-              >
-                ₦
-                {(
-                  player.bet +
-                  player.profit
-                ).toFixed(2)}
-              </div>
+        {!raceStarted && !winner && (
+          <div className="bg-black/30 rounded-3xl p-5 mb-6">
+            <h2 className="text-2xl font-bold mb-5">
+              Select Your Horse
+            </h2>
 
-              <div
-                style={{
-                  opacity: 0.7,
-                  marginTop: 5
-                }}
-              >
-                Live Profit: +₦
-                {player.profit.toFixed(2)}
-              </div>
-            </>
-          )}
-
-        {player.cashedOut && (
-          <div style={{ color: "gold" }}>
-            <div>
-              Cashed Out @{" "}
-              {player.cashoutMultiplier?.toFixed(
-                2
-              )}
-              x
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {horses.map((horse) => (
+                <button
+                  key={horse.id}
+                  onClick={() =>
+                    setSelectedHorse(horse.id)
+                  }
+                  className={`p-4 rounded-3xl border-4 transition-all ${
+                    selectedHorse === horse.id
+                      ? "border-yellow-400 bg-yellow-500 text-black"
+                      : "border-white bg-gray-800"
+                  }`}
+                >
+                  <div className="text-6xl mb-2">🐎</div>
+                  <p className="font-bold text-lg">
+                    {horse.name}
+                  </p>
+                </button>
+              ))}
             </div>
 
-            <div style={{ marginTop: 5 }}>
-              Won ₦
-              {(
-                player.bet +
-                player.profit
-              ).toFixed(2)}
-            </div>
+            <button
+              onClick={startRace}
+              className="mt-6 w-full bg-blue-500 hover:bg-blue-600 py-4 rounded-3xl text-2xl font-bold"
+            >
+              Start Race
+            </button>
           </div>
         )}
 
-        {status === "CRASHED" &&
-          !player.cashedOut && (
-            <div
-              style={{
-                color: "red",
-                marginTop: 10
-              }}
-            >
-              Lost ₦{player.bet}
+        {countdown > 0 &&
+          !raceStarted &&
+          !winner &&
+          countdown !== 5 && (
+            <div className="text-center text-7xl font-bold mb-6 animate-pulse">
+              {countdown}
             </div>
           )}
+
+        <div className="bg-green-700 rounded-3xl border-4 border-white p-5">
+          {horses.map((horse) => (
+            <div key={horse.id} className="mb-6">
+              <div className="flex justify-between mb-2 font-bold">
+                <span>
+                  {horse.name}
+                  {winner?.id === horse.id && " 🏆"}
+                </span>
+                <span>
+                  {Math.floor(positions[horse.id])}%
+                </span>
+              </div>
+
+              <div className="relative bg-white rounded-full h-16 overflow-hidden">
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 text-5xl transition-all duration-100"
+                  style={{
+                    left: `${positions[horse.id]}%`,
+                  }}
+                >
+                  🐎
+                </div>
+
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl">
+                  🏁
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 bg-black/30 rounded-3xl p-5 text-center">
+          <p className="text-2xl font-bold">{message}</p>
+
+          {winner && (
+            <>
+              <h2 className="text-5xl font-bold text-yellow-400 mt-4">
+                🏆 {winner.name} Wins!
+              </h2>
+
+              <button
+                onClick={resetRace}
+                className="mt-5 bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-4 rounded-3xl font-bold text-xl"
+              >
+                Play Again
+              </button>
+            </>
+          )}
+        </div>
       </div>
-
-      {/* CASHOUT BUTTON */}
-      <button
-        onClick={cashout}
-        disabled={
-          status !== "RUNNING" ||
-          player.cashedOut
-        }
-        style={{
-          ...styles.cashoutButton,
-          opacity:
-            status !== "RUNNING" ||
-            player.cashedOut
-              ? 0.5
-              : 1
-        }}
-      >
-        {player.cashedOut
-          ? "CASHED OUT"
-          : `CASH OUT @ ${multiplier.toFixed(
-              2
-            )}x`}
-      </button>
-
-      {/* BACK BUTTON */}
-      <button
-        onClick={onBack}
-        style={styles.backButton}
-      >
-        ← Back
-      </button>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    background: "#020617",
-    color: "white",
-    padding: 20,
-    textAlign: "center",
-    overflow: "hidden"
-  },
-
-  multiplier: {
-    fontSize: 52,
-    fontWeight: "bold",
-    marginBottom: 15
-  },
-
-  gameArea: {
-    position: "relative",
-    height: 280,
-    background:
-      "linear-gradient(to top, #111827, #0f172a)",
-    borderRadius: 20,
-    overflow: "hidden",
-    marginBottom: 20,
-    border: "1px solid #1e293b"
-  },
-
-  svg: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%"
-  },
-
-  rocket: {
-    position: "absolute",
-    fontSize: 42,
-    filter:
-      "drop-shadow(0 0 10px #22c55e)",
-    transition: "all 0.04s linear",
-    zIndex: 10
-  },
-
-  card: {
-    background: "#111827",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    border: "1px solid #1e293b"
-  },
-
-  cashoutButton: {
-    width: "100%",
-    padding: 16,
-    borderRadius: 14,
-    border: "none",
-    background: "#22c55e",
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    cursor: "pointer"
-  },
-
-  backButton: {
-    marginTop: 15,
-    padding: 12,
-    width: "100%",
-    borderRadius: 12,
-    border: "none",
-    background: "#1e293b",
-    color: "white",
-    cursor: "pointer"
-  }
-};
