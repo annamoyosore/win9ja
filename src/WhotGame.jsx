@@ -2,11 +2,16 @@ import React, { useRef, useState, useEffect } from "react";
 
 export default function Horse() {
   const horses = [
-    { id: 1, name: "Thunder" },
-    { id: 2, name: "Blaze" },
-    { id: 3, name: "Storm" },
-    { id: 4, name: "Rocket" },
+    { id: 1, name: "Thunder", color: "#facc15" },
+    { id: 2, name: "Blaze", color: "#ef4444" },
+    { id: 3, name: "Storm", color: "#3b82f6" },
+    { id: 4, name: "Rocket", color: "#22c55e" },
   ];
+
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const raceRef = useRef(null);
+  const countdownRef = useRef(null);
 
   const [positions, setPositions] = useState({
     1: 0,
@@ -25,8 +30,57 @@ export default function Horse() {
     "Pick a horse and start the race."
   );
 
-  const raceRef = useRef(null);
-  const countdownRef = useRef(null);
+  // 🎨 DRAW CANVAS HORSES
+  const draw = (ctx, pos) => {
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // track lines
+    ctx.fillStyle = "#064e3b";
+    ctx.fillRect(0, 0, width, height);
+
+    horses.forEach((h, index) => {
+      const y = 60 + index * 80;
+
+      // lane
+      ctx.fillStyle = "rgba(255,255,255,0.1)";
+      ctx.fillRect(0, y - 30, width, 60);
+
+      // horse body (circle)
+      ctx.beginPath();
+      ctx.fillStyle = h.color;
+      ctx.arc(pos[h.id], y, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      // name
+      ctx.fillStyle = "white";
+      ctx.font = "14px Arial";
+      ctx.fillText(h.name, pos[h.id] - 20, y - 25);
+
+      // finish line
+      ctx.fillStyle = "white";
+      ctx.fillRect(width - 10, 0, 5, height);
+    });
+  };
+
+  // 🎬 ANIMATION LOOP
+  const animate = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    draw(ctx, positions);
+
+    animationRef.current = requestAnimationFrame(animate);
+  };
+
+  useEffect(() => {
+    animate();
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [positions]);
 
   const resetRace = () => {
     clearInterval(raceRef.current);
@@ -46,26 +100,19 @@ export default function Horse() {
   };
 
   const startRace = () => {
-    if (!selectedHorse) {
-      alert("Select a horse first");
-      return;
-    }
+    if (!selectedHorse) return alert("Select a horse first");
+    if (betAmount > balance) return alert("Insufficient balance");
 
-    if (betAmount > balance) {
-      alert("Insufficient balance");
-      return;
-    }
+    setBalance((p) => p - betAmount);
 
-    setBalance((prev) => prev - betAmount);
-
-    let count = 5;
-    setCountdown(count);
+    let c = 5;
+    setCountdown(c);
 
     countdownRef.current = setInterval(() => {
-      count -= 1;
-      setCountdown(count);
+      c -= 1;
+      setCountdown(c);
 
-      if (count <= 0) {
+      if (c <= 0) {
         clearInterval(countdownRef.current);
         beginRace();
       }
@@ -80,50 +127,41 @@ export default function Horse() {
       setPositions((prev) => {
         const updated = { ...prev };
 
-        horses.forEach((horse) => {
-          updated[horse.id] += Math.random() * 2.2; // smooth motion
+        horses.forEach((h) => {
+          updated[h.id] += Math.random() * 3;
         });
 
-        const winningHorse = horses.find(
-          (h) => updated[h.id] >= 90
-        );
+        const win = horses.find((h) => updated[h.id] >= 100);
 
-        if (winningHorse) {
+        if (win) {
           clearInterval(raceRef.current);
-
-          setWinner(winningHorse);
+          setWinner(win);
           setRaceStarted(false);
 
-          if (selectedHorse === winningHorse.id) {
+          if (selectedHorse === win.id) {
             const payout = betAmount * 3;
             setBalance((p) => p + payout);
             setMessage(`🎉 You won ₦${payout}`);
           } else {
-            setMessage(`😢 ${winningHorse.name} won the race`);
+            setMessage(`😢 ${win.name} won the race`);
           }
         }
 
         return updated;
       });
-    }, 40); // 🔥 ultra smooth animation
+    }, 50);
   };
-
-  useEffect(() => {
-    return () => {
-      clearInterval(raceRef.current);
-      clearInterval(countdownRef.current);
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-4">
       <div className="max-w-5xl mx-auto">
+
         <h1 className="text-4xl font-bold text-center mb-5">
-          🏇 Horse Racing Live Video Demo
+          🏇 Canvas Horse Racing
         </h1>
 
-        {/* CONTROL PANEL */}
-        <div className="bg-black/30 rounded-3xl p-4 mb-6 flex flex-wrap gap-4 justify-between items-center">
+        {/* CONTROL */}
+        <div className="bg-black/30 p-4 rounded-3xl flex justify-between items-center flex-wrap gap-4">
           <div>
             <p>Balance</p>
             <h2 className="text-3xl font-bold">₦{balance}</h2>
@@ -146,25 +184,23 @@ export default function Horse() {
           </button>
         </div>
 
-        {/* SELECT HORSE */}
+        {/* SELECT */}
         {!raceStarted && !winner && (
-          <div className="bg-black/30 p-5 rounded-3xl">
-            <h2 className="text-xl mb-4">
-              Select Horse
-            </h2>
+          <div className="bg-black/30 p-5 rounded-3xl mt-6">
+            <h2 className="mb-4">Select Horse</h2>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {horses.map((h) => (
                 <button
                   key={h.id}
                   onClick={() => setSelectedHorse(h.id)}
-                  className={`p-4 rounded-2xl border-2 ${
+                  className={`p-4 rounded-2xl ${
                     selectedHorse === h.id
                       ? "bg-yellow-500 text-black"
                       : "bg-gray-800"
                   }`}
                 >
-                  🐎 {h.name}
+                  {h.name}
                 </button>
               ))}
             </div>
@@ -188,61 +224,18 @@ export default function Horse() {
             </div>
           )}
 
-        {/* RACE TRACK */}
-        <div className="bg-green-700 mt-6 p-5 rounded-3xl border-4 border-white">
-          {horses.map((horse) => (
-            <div key={horse.id} className="mb-6">
-              <div className="flex justify-between mb-2">
-                <span>
-                  {horse.name}{" "}
-                  {winner?.id === horse.id && "🏆"}
-                </span>
-                <span>
-                  {Math.floor(positions[horse.id])}%
-                </span>
-              </div>
-
-              <div className="relative bg-white h-20 rounded-full overflow-hidden">
-                
-                {/* 🏇 LIVE VIDEO HORSE */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${positions[horse.id]}%`,
-                    transition: "left 0.04s linear",
-                  }}
-                >
-                  <video
-                    src="/horse-run.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    style={{
-                      height: "70px",
-                    }}
-                    onError={(e) => {
-                      // fallback emoji if video missing
-                      e.target.style.display = "none";
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: "40px",
-                      display: "none",
-                    }}
-                  >
-                    🐎
-                  </span>
-                </div>
-
-                {/* FINISH LINE */}
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl">
-                  🏁
-                </div>
-              </div>
-            </div>
-          ))}
+        {/* CANVAS TRACK */}
+        <div className="mt-6 bg-black/30 p-4 rounded-3xl">
+          <canvas
+            ref={canvasRef}
+            width={800}
+            height={400}
+            style={{
+              width: "100%",
+              height: "400px",
+              borderRadius: "20px",
+            }}
+          />
         </div>
 
         {/* STATUS */}
