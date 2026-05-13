@@ -46,8 +46,15 @@ export default function Horse() {
   };
 
   const startRace = () => {
-    if (!selectedHorse) return alert("Select a horse first");
-    if (betAmount > balance) return alert("Insufficient balance");
+    if (!selectedHorse) {
+      alert("Select a horse first");
+      return;
+    }
+
+    if (betAmount > balance) {
+      alert("Insufficient balance");
+      return;
+    }
 
     setBalance((prev) => prev - betAmount);
 
@@ -74,31 +81,31 @@ export default function Horse() {
         const updated = { ...prev };
 
         horses.forEach((horse) => {
-          // 🔥 smaller increments = smoother movement
-          updated[horse.id] += Math.random() * 2.5;
+          updated[horse.id] += Math.random() * 2.2; // smooth motion
         });
 
-        const winnerHorse = horses.find(
+        const winningHorse = horses.find(
           (h) => updated[h.id] >= 90
         );
 
-        if (winnerHorse) {
+        if (winningHorse) {
           clearInterval(raceRef.current);
-          setWinner(winnerHorse);
+
+          setWinner(winningHorse);
           setRaceStarted(false);
 
-          if (selectedHorse === winnerHorse.id) {
+          if (selectedHorse === winningHorse.id) {
             const payout = betAmount * 3;
             setBalance((p) => p + payout);
             setMessage(`🎉 You won ₦${payout}`);
           } else {
-            setMessage(`😢 ${winnerHorse.name} won`);
+            setMessage(`😢 ${winningHorse.name} won the race`);
           }
         }
 
         return updated;
       });
-    }, 50); // 🔥 faster updates = smoother animation
+    }, 40); // 🔥 ultra smooth animation
   };
 
   useEffect(() => {
@@ -112,11 +119,11 @@ export default function Horse() {
     <div className="min-h-screen bg-green-900 text-white p-4">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-5">
-          🏇 Horse Racing Demo
+          🏇 Horse Racing Live Video Demo
         </h1>
 
-        {/* controls */}
-        <div className="bg-black/30 rounded-3xl p-4 mb-6 flex justify-between items-center flex-wrap gap-4">
+        {/* CONTROL PANEL */}
+        <div className="bg-black/30 rounded-3xl p-4 mb-6 flex flex-wrap gap-4 justify-between items-center">
           <div>
             <p>Balance</p>
             <h2 className="text-3xl font-bold">₦{balance}</h2>
@@ -128,28 +135,30 @@ export default function Horse() {
             onChange={(e) =>
               setBetAmount(Number(e.target.value))
             }
-            className="bg-gray-800 px-4 py-3 rounded-xl w-40"
+            className="bg-gray-800 px-4 py-3 rounded-2xl w-40"
           />
 
           <button
             onClick={resetRace}
-            className="bg-red-500 px-5 py-3 rounded-xl font-bold"
+            className="bg-red-500 px-5 py-3 rounded-2xl font-bold"
           >
             Reset
           </button>
         </div>
 
-        {/* selection */}
+        {/* SELECT HORSE */}
         {!raceStarted && !winner && (
           <div className="bg-black/30 p-5 rounded-3xl">
-            <h2 className="text-xl mb-4">Select Horse</h2>
+            <h2 className="text-xl mb-4">
+              Select Horse
+            </h2>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {horses.map((h) => (
                 <button
                   key={h.id}
                   onClick={() => setSelectedHorse(h.id)}
-                  className={`p-4 rounded-2xl border-2 transition ${
+                  className={`p-4 rounded-2xl border-2 ${
                     selectedHorse === h.id
                       ? "bg-yellow-500 text-black"
                       : "bg-gray-800"
@@ -169,17 +178,17 @@ export default function Horse() {
           </div>
         )}
 
-        {/* countdown */}
+        {/* COUNTDOWN */}
         {countdown > 0 &&
           !raceStarted &&
           !winner &&
           countdown !== 5 && (
-            <div className="text-center text-6xl font-bold">
+            <div className="text-center text-7xl font-bold">
               {countdown}
             </div>
           )}
 
-        {/* TRACK */}
+        {/* RACE TRACK */}
         <div className="bg-green-700 mt-6 p-5 rounded-3xl border-4 border-white">
           {horses.map((horse) => (
             <div key={horse.id} className="mb-6">
@@ -193,18 +202,42 @@ export default function Horse() {
                 </span>
               </div>
 
-              <div className="relative bg-white h-16 rounded-full overflow-hidden">
+              <div className="relative bg-white h-20 rounded-full overflow-hidden">
+                
+                {/* 🏇 LIVE VIDEO HORSE */}
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 text-4xl"
+                  className="absolute top-1/2 -translate-y-1/2"
                   style={{
                     left: `${positions[horse.id]}%`,
-                    transition: "left 0.05s linear",
+                    transition: "left 0.04s linear",
                   }}
                 >
-                  🐎
+                  <video
+                    src="/horse-run.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{
+                      height: "70px",
+                    }}
+                    onError={(e) => {
+                      // fallback emoji if video missing
+                      e.target.style.display = "none";
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: "40px",
+                      display: "none",
+                    }}
+                  >
+                    🐎
+                  </span>
                 </div>
 
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                {/* FINISH LINE */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl">
                   🏁
                 </div>
               </div>
@@ -212,7 +245,7 @@ export default function Horse() {
           ))}
         </div>
 
-        {/* status */}
+        {/* STATUS */}
         <div className="mt-6 text-center">
           <p className="text-2xl font-bold">{message}</p>
 
