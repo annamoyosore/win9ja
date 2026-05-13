@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 export default function Horse() {
   const horses = [
@@ -26,9 +26,11 @@ export default function Horse() {
   );
 
   const raceRef = useRef(null);
+  const countdownRef = useRef(null);
 
   const resetRace = () => {
     clearInterval(raceRef.current);
+    clearInterval(countdownRef.current);
 
     setPositions({
       1: 0,
@@ -57,16 +59,14 @@ export default function Horse() {
     setBalance((prev) => prev - betAmount);
 
     let count = 5;
-
     setCountdown(count);
 
-    const countdownTimer = setInterval(() => {
-      count--;
-
+    countdownRef.current = setInterval(() => {
+      count -= 1;
       setCountdown(count);
 
       if (count <= 0) {
-        clearInterval(countdownTimer);
+        clearInterval(countdownRef.current);
         beginRace();
       }
     }, 1000);
@@ -96,9 +96,7 @@ export default function Horse() {
 
           if (selectedHorse === winningHorse.id) {
             const payout = betAmount * 3;
-
             setBalance((prev) => prev + payout);
-
             setMessage(`🎉 You won ₦${payout}`);
           } else {
             setMessage(`😢 ${winningHorse.name} won the race`);
@@ -110,6 +108,13 @@ export default function Horse() {
     }, 120);
   };
 
+  useEffect(() => {
+    return () => {
+      clearInterval(raceRef.current);
+      clearInterval(countdownRef.current);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-green-900 text-white p-4">
       <div className="max-w-5xl mx-auto">
@@ -120,15 +125,11 @@ export default function Horse() {
         <div className="bg-black/30 rounded-3xl p-4 mb-6 flex flex-wrap gap-4 justify-between items-center">
           <div>
             <p className="text-lg">Balance</p>
-
-            <h2 className="text-3xl font-bold">
-              ₦{balance}
-            </h2>
+            <h2 className="text-3xl font-bold">₦{balance}</h2>
           </div>
 
           <div>
             <p className="mb-1">Bet Amount</p>
-
             <input
               type="number"
               value={betAmount}
@@ -166,10 +167,7 @@ export default function Horse() {
                       : "border-white bg-gray-800"
                   }`}
                 >
-                  <div className="text-6xl mb-2">
-                    🐎
-                  </div>
-
+                  <div className="text-6xl mb-2">🐎</div>
                   <p className="font-bold text-lg">
                     {horse.name}
                   </p>
@@ -201,15 +199,10 @@ export default function Horse() {
               <div className="flex justify-between mb-2 font-bold">
                 <span>
                   {horse.name}
-                  {winner?.id === horse.id &&
-                    " 🏆"}
+                  {winner?.id === horse.id && " 🏆"}
                 </span>
-
                 <span>
-                  {Math.floor(
-                    positions[horse.id]
-                  )}
-                  %
+                  {Math.floor(positions[horse.id])}%
                 </span>
               </div>
 
@@ -232,9 +225,7 @@ export default function Horse() {
         </div>
 
         <div className="mt-6 bg-black/30 rounded-3xl p-5 text-center">
-          <p className="text-2xl font-bold">
-            {message}
-          </p>
+          <p className="text-2xl font-bold">{message}</p>
 
           {winner && (
             <>
