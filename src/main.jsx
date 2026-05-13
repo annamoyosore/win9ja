@@ -4,12 +4,13 @@ import ReactDOM from "react-dom/client";
 import WhotGame from "./WhotGame";
 import BottleGame from "./BottleGame";
 import DiceBattle from "./DiceBattle";
-import CrashGameRoomDemo from "./CrashGameRoomDemo"; // ✅ ADD THIS
+import CrashGameRoomDemo from "./CrashGameRoomDemo";
+import Horse from "./pages/Horse"; // ✅ HORSE GAME
 
 function App() {
   const [currentGame, setCurrentGame] = useState(null);
 
-  // 👇 crash stage control (waiting → game)
+  // 👇 crash stage control
   const [crashPlayers, setCrashPlayers] = useState([]);
 
   const renderGame = () => {
@@ -30,6 +31,9 @@ function App() {
 
       case "dice":
         return <DiceBattle />;
+
+      case "horse":
+        return <Horse />;
 
       case "crash":
         return (
@@ -52,11 +56,13 @@ function App() {
         {!currentGame && (
           <div>
             <h1>🎮 Game Lobby</h1>
+
             <p>Select a game to play</p>
 
             <div style={{ marginTop: "20px" }}>
+
               <button onClick={() => setCurrentGame("whot")}>
-                🃏 Play Whot (Waiting Room)
+                🃏 Play Whot
               </button>
 
               <button
@@ -72,6 +78,14 @@ function App() {
               >
                 🎲 Dice Battle
               </button>
+
+              <button
+                onClick={() => setCurrentGame("horse")}
+                style={{ marginLeft: "10px" }}
+              >
+                🏇 Horse Racing
+              </button>
+
             </div>
           </div>
         )}
@@ -85,11 +99,13 @@ function App() {
           </div>
         )}
 
-        {/* 🎯 GAME RENDER */}
+        {/* 🎯 GAME */}
         {renderGame()}
       </div>
     </React.StrictMode>
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(
+  document.getElementById("root")
+).render(<App />);
