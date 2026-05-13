@@ -46,15 +46,8 @@ export default function Horse() {
   };
 
   const startRace = () => {
-    if (!selectedHorse) {
-      alert("Select a horse first");
-      return;
-    }
-
-    if (betAmount > balance) {
-      alert("Insufficient balance");
-      return;
-    }
+    if (!selectedHorse) return alert("Select a horse first");
+    if (betAmount > balance) return alert("Insufficient balance");
 
     setBalance((prev) => prev - betAmount);
 
@@ -81,31 +74,31 @@ export default function Horse() {
         const updated = { ...prev };
 
         horses.forEach((horse) => {
-          updated[horse.id] += Math.random() * 7;
+          // 🔥 smaller increments = smoother movement
+          updated[horse.id] += Math.random() * 2.5;
         });
 
-        const winningHorse = horses.find(
-          (horse) => updated[horse.id] >= 90
+        const winnerHorse = horses.find(
+          (h) => updated[h.id] >= 90
         );
 
-        if (winningHorse) {
+        if (winnerHorse) {
           clearInterval(raceRef.current);
-
-          setWinner(winningHorse);
+          setWinner(winnerHorse);
           setRaceStarted(false);
 
-          if (selectedHorse === winningHorse.id) {
+          if (selectedHorse === winnerHorse.id) {
             const payout = betAmount * 3;
-            setBalance((prev) => prev + payout);
+            setBalance((p) => p + payout);
             setMessage(`🎉 You won ₦${payout}`);
           } else {
-            setMessage(`😢 ${winningHorse.name} won the race`);
+            setMessage(`😢 ${winnerHorse.name} won`);
           }
         }
 
         return updated;
       });
-    }, 120);
+    }, 50); // 🔥 faster updates = smoother animation
   };
 
   useEffect(() => {
@@ -122,101 +115,96 @@ export default function Horse() {
           🏇 Horse Racing Demo
         </h1>
 
-        <div className="bg-black/30 rounded-3xl p-4 mb-6 flex flex-wrap gap-4 justify-between items-center">
+        {/* controls */}
+        <div className="bg-black/30 rounded-3xl p-4 mb-6 flex justify-between items-center flex-wrap gap-4">
           <div>
-            <p className="text-lg">Balance</p>
+            <p>Balance</p>
             <h2 className="text-3xl font-bold">₦{balance}</h2>
           </div>
 
-          <div>
-            <p className="mb-1">Bet Amount</p>
-            <input
-              type="number"
-              value={betAmount}
-              onChange={(e) =>
-                setBetAmount(Number(e.target.value))
-              }
-              className="bg-gray-800 px-4 py-3 rounded-2xl text-white w-40"
-            />
-          </div>
+          <input
+            type="number"
+            value={betAmount}
+            onChange={(e) =>
+              setBetAmount(Number(e.target.value))
+            }
+            className="bg-gray-800 px-4 py-3 rounded-xl w-40"
+          />
 
           <button
             onClick={resetRace}
-            className="bg-red-500 hover:bg-red-600 px-5 py-3 rounded-2xl font-bold"
+            className="bg-red-500 px-5 py-3 rounded-xl font-bold"
           >
             Reset
           </button>
         </div>
 
+        {/* selection */}
         {!raceStarted && !winner && (
-          <div className="bg-black/30 rounded-3xl p-5 mb-6">
-            <h2 className="text-2xl font-bold mb-5">
-              Select Your Horse
-            </h2>
+          <div className="bg-black/30 p-5 rounded-3xl">
+            <h2 className="text-xl mb-4">Select Horse</h2>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {horses.map((horse) => (
+              {horses.map((h) => (
                 <button
-                  key={horse.id}
-                  onClick={() =>
-                    setSelectedHorse(horse.id)
-                  }
-                  className={`p-4 rounded-3xl border-4 transition-all ${
-                    selectedHorse === horse.id
-                      ? "border-yellow-400 bg-yellow-500 text-black"
-                      : "border-white bg-gray-800"
+                  key={h.id}
+                  onClick={() => setSelectedHorse(h.id)}
+                  className={`p-4 rounded-2xl border-2 transition ${
+                    selectedHorse === h.id
+                      ? "bg-yellow-500 text-black"
+                      : "bg-gray-800"
                   }`}
                 >
-                  <div className="text-6xl mb-2">🐎</div>
-                  <p className="font-bold text-lg">
-                    {horse.name}
-                  </p>
+                  🐎 {h.name}
                 </button>
               ))}
             </div>
 
             <button
               onClick={startRace}
-              className="mt-6 w-full bg-blue-500 hover:bg-blue-600 py-4 rounded-3xl text-2xl font-bold"
+              className="mt-5 w-full bg-blue-500 py-4 rounded-2xl font-bold"
             >
               Start Race
             </button>
           </div>
         )}
 
+        {/* countdown */}
         {countdown > 0 &&
           !raceStarted &&
           !winner &&
           countdown !== 5 && (
-            <div className="text-center text-7xl font-bold mb-6 animate-pulse">
+            <div className="text-center text-6xl font-bold">
               {countdown}
             </div>
           )}
 
-        <div className="bg-green-700 rounded-3xl border-4 border-white p-5">
+        {/* TRACK */}
+        <div className="bg-green-700 mt-6 p-5 rounded-3xl border-4 border-white">
           {horses.map((horse) => (
             <div key={horse.id} className="mb-6">
-              <div className="flex justify-between mb-2 font-bold">
+              <div className="flex justify-between mb-2">
                 <span>
-                  {horse.name}
-                  {winner?.id === horse.id && " 🏆"}
+                  {horse.name}{" "}
+                  {winner?.id === horse.id && "🏆"}
                 </span>
                 <span>
                   {Math.floor(positions[horse.id])}%
                 </span>
               </div>
 
-              <div className="relative bg-white rounded-full h-16 overflow-hidden">
+              <div className="relative bg-white h-16 rounded-full overflow-hidden">
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 text-5xl transition-all duration-100"
+                  className="absolute top-1/2 -translate-y-1/2 text-4xl"
                   style={{
                     left: `${positions[horse.id]}%`,
+                    transition: "left 0.05s linear",
                   }}
                 >
                   🐎
                 </div>
 
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   🏁
                 </div>
               </div>
@@ -224,22 +212,14 @@ export default function Horse() {
           ))}
         </div>
 
-        <div className="mt-6 bg-black/30 rounded-3xl p-5 text-center">
+        {/* status */}
+        <div className="mt-6 text-center">
           <p className="text-2xl font-bold">{message}</p>
 
           {winner && (
-            <>
-              <h2 className="text-5xl font-bold text-yellow-400 mt-4">
-                🏆 {winner.name} Wins!
-              </h2>
-
-              <button
-                onClick={resetRace}
-                className="mt-5 bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-4 rounded-3xl font-bold text-xl"
-              >
-                Play Again
-              </button>
-            </>
+            <h2 className="text-4xl text-yellow-400 mt-4">
+              🏆 {winner.name} Wins!
+            </h2>
           )}
         </div>
       </div>
