@@ -1,351 +1,160 @@
-import { useState, useRef } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Penalty Shootout Game</title>
 
-export default function CasinoWheel() {
-  const segments = [
-    "❌ Lose",
-    "x2",
-    "🎁 Free",
-    "x3",
-    "➖ -50%",
-    "x1",
-    "🔥 x10",
-    "💎 JACKPOT ×30"
-  ];
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0b6623;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: white;
+  }
 
-  const segmentAngle = 360 / segments.length;
+  h1 {
+    margin: 10px;
+  }
 
-  const [stake, setStake] = useState("");
-  const [rotation, setRotation] = useState(0);
-  const [result, setResult] = useState("");
-  const [total, setTotal] = useState(0);
-  const [won, setWon] = useState(0);
-  const [spinning, setSpinning] = useState(false);
-  const [overlay, setOverlay] = useState(null);
-  const [countdown, setCountdown] = useState(null);
-  const [freeSpins, setFreeSpins] = useState(0);
-  const [flowers, setFlowers] = useState([]);
+  #game {
+    position: relative;
+    width: 360px;
+    height: 500px;
+    background: #1f8f3a;
+    border: 3px solid white;
+    overflow: hidden;
+  }
 
-  const audioCtxRef = useRef(null);
+  .goal {
+    position: absolute;
+    top: 20px;
+    width: 100%;
+    height: 120px;
+    border-bottom: 4px solid white;
+  }
 
-  const pool = [
-    { type: "LOSE", weight: 0.39 },
-    { type: "HALF", weight: 0.12 },
-    { type: "X1", weight: 0.12 },
-    { type: "FREE", weight: 0.08 },
-    { type: "X2", weight: 0.20 },
-    { type: "X3", weight: 0.08 },
-    { type: "X10", weight: 0.01 }
-  ];
+  .keeper {
+    position: absolute;
+    top: 60px;
+    left: 160px;
+    width: 40px;
+    height: 40px;
+    background: yellow;
+    border-radius: 50%;
+    transition: 0.4s;
+  }
 
-  const getResult = () => {
-    let r = Math.random(), sum = 0;
-    for (let p of pool) {
-      sum += p.weight;
-      if (r <= sum) return p.type;
+  .ball {
+    position: absolute;
+    bottom: 60px;
+    left: 160px;
+    width: 25px;
+    height: 25px;
+    background: white;
+    border-radius: 50%;
+  }
+
+  #controls {
+    margin-top: 10px;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  #score {
+    margin-top: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>⚽ Penalty Shootout</h1>
+
+<div id="game">
+  <div class="goal"></div>
+  <div class="keeper" id="keeper"></div>
+  <div class="ball" id="ball"></div>
+</div>
+
+<div id="controls">
+  <button onclick="shoot()">Shoot</button>
+  <button onclick="resetGame()">Reset</button>
+</div>
+
+<div id="score">
+  Goals: <span id="goals">0</span> |
+  Misses: <span id="misses">0</span>
+</div>
+
+<script>
+let goals = 0;
+let misses = 0;
+let shooting = false;
+
+const ball = document.getElementById("ball");
+const keeper = document.getElementById("keeper");
+
+function shoot() {
+  if (shooting) return;
+  shooting = true;
+
+  // random shot direction
+  const targetX = Math.floor(Math.random() * 300);
+
+  // goalkeeper dive
+  const keeperMove = Math.floor(Math.random() * 300);
+  keeper.style.left = keeperMove + "px";
+
+  // animate ball
+  ball.style.transition = "0.6s";
+  ball.style.bottom = "380px";
+  ball.style.left = targetX + "px";
+
+  setTimeout(() => {
+    const difference = Math.abs(targetX - keeperMove);
+
+    if (difference < 40) {
+      misses++;
+      alert("❌ Saved by goalkeeper!");
+    } else {
+      goals++;
+      alert("⚽ GOAL!");
     }
-  };
 
-  const spawnFlowers = () => {
-    const items = Array.from({ length: 25 }).map((_, i) => ({
-      id: i,
-      left: Math.random() * 100
-    }));
-    setFlowers(items);
-    setTimeout(() => setFlowers([]), 2500);
-  };
-
-  const playSound = (type) => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext ||
-        window.webkitAudioContext)();
-    }
-    const ctx = audioCtxRef.current;
-
-    const tone = (f, d) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.frequency.value = f;
-      g.gain.value = 0.1;
-      o.start();
-      setTimeout(() => o.stop(), d);
-    };
-
-    if (type === "win") [400, 700, 1000].forEach((f, i) =>
-      setTimeout(() => tone(f, 200), i * 120)
-    );
-
-    if (type === "lose") [500, 300, 120].forEach((f, i) =>
-      setTimeout(() => tone(f, 200), i * 150)
-    );
-  };
-
-  const startResetCountdown = () => {
-    let time = 5;
-    setCountdown(time);
-
-    const interval = setInterval(() => {
-      time--;
-      setCountdown(time);
-      if (time <= 0) {
-        clearInterval(interval);
-        setRotation(0);
-        setResult("");
-        setOverlay(null);
-        setCountdown(null);
-      }
-    }, 1000);
-  };
-
-  const spin = () => {
-    if (spinning) return;
-
-    if ((!stake || Number(stake) <= 0) && freeSpins <= 0) {
-      setResult("⚠️ Enter valid stake");
-      return;
-    }
-
-    const numericStake = Number(stake);
-
-    setSpinning(true);
-    setResult("");
-    setOverlay(null);
-    setWon(0);
-
-    const outcome = getResult();
-
-    const map = {
-      LOSE: 0,
-      X2: 1,
-      FREE: 2,
-      X3: 3,
-      HALF: 4,
-      X1: 5,
-      X10: 6
-    };
-
-    const index = map[outcome];
-
-    const stopAngle = 360 - (index * segmentAngle + segmentAngle / 2);
-    const finalRotation = rotation + 1440 + stopAngle;
-
-    setRotation(finalRotation);
-
-    setTimeout(() => {
-      let text = "";
-      let win = 0;
-
-      if (outcome === "LOSE") {
-        setTotal((t) => t - numericStake);
-        playSound("lose");
-        setOverlay("lose");
-        text = `❌ Lost ₦${numericStake}`;
-
-      } else if (outcome === "HALF") {
-        const loss = numericStake / 2;
-        setTotal((t) => t - loss);
-        playSound("lose");
-        setOverlay("lose");
-        text = `➖ Lost ₦${loss}`;
-
-      } else if (outcome === "X1") {
-        text = "⚖️ No Gain";
-        playSound("win");
-
-      } else if (outcome === "FREE") {
-        setFreeSpins((f) => f + 1);
-        text = "🎁 Free Spin!";
-        playSound("win");
-
-      } else {
-        const mult = parseInt(outcome.replace("X", ""));
-        win = numericStake * mult;
-        setTotal((t) => t + win);
-        setWon(win);
-        playSound("win");
-        spawnFlowers();
-        setOverlay("win");
-        text = `🎉 Won ₦${win}`;
-      }
-
-      setResult(text);
-      setSpinning(false);
-      startResetCountdown();
-    }, 3000);
-  };
-
-  return (
-    <>
-      <style>{`
-        .container {
-          height:100vh;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          justify-content:center;
-          background: radial-gradient(circle,#1a1a2e,#000);
-          color:white;
-        }
-
-        .stake-input input {
-          padding:10px;
-          border-radius:10px;
-          border:none;
-          outline:none;
-          text-align:center;
-          font-size:16px;
-          width:160px;
-        }
-
-        .stake-display {
-          margin-top:8px;
-          font-size:16px;
-          font-weight:bold;
-          color:#ff3b3b;
-          text-shadow:0 0 8px red;
-        }
-
-        .wheel-container {
-          width:200px;
-          height:200px;
-          position:relative;
-          margin:15px;
-        }
-
-        .pointer {
-          position:absolute;
-          top:-14px;
-          left:50%;
-          transform:translateX(-50%);
-          font-size:22px;
-        }
-
-        .wheel {
-          width:100%;
-          height:100%;
-          border-radius:50%;
-          border:5px solid gold;
-          position:relative;
-          overflow:hidden;
-          transition:transform 3s cubic-bezier(0.25,1,0.5,1);
-        }
-
-        .segment {
-          position:absolute;
-          width:50%;
-          height:50%;
-          top:50%;
-          left:50%;
-          transform-origin:0% 0%;
-          display:flex;
-          align-items:center;
-          justify-content:flex-end;
-          padding-right:10px;
-          clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
-        }
-
-        .label {
-          font-size:13px;
-          font-weight:bold;
-          color:white;
-          text-shadow:0 0 5px black;
-        }
-
-        .jackpot {
-          color:gold;
-          font-weight:900;
-          text-shadow:0 0 10px gold,0 0 20px gold;
-        }
-
-        .confetti {
-          position:fixed;
-          top:-20px;
-          font-size:18px;
-          animation:fall 2.5s linear forwards;
-        }
-
-        @keyframes fall {
-          to {
-            transform:translateY(110vh);
-            opacity:0;
-          }
-        }
-      `}</style>
-
-      <div className="container">
-        <h3>🎡 Casino Wheel</h3>
-
-        {/* Manual Stake */}
-        <div className="stake-input">
-          <input
-            type="number"
-            placeholder="Enter stake..."
-            value={stake}
-            onChange={(e) => setStake(e.target.value)}
-          />
-        </div>
-
-        <p className="stake-display">
-          💸 Stake: {stake ? `₦${stake}` : "None"}
-        </p>
-
-        <p>🎟 Free Spins: {freeSpins}</p>
-
-        <div className="wheel-container">
-          <div className="pointer">🔻</div>
-
-          <div
-            className="wheel"
-            style={{ transform: `rotate(${rotation}deg)` }}
-          >
-            {segments.map((seg, i) => (
-              <div
-                key={i}
-                className="segment"
-                style={{
-                  transform: `rotate(${i * segmentAngle}deg)`,
-                  background: `hsl(${i * 45},80%,50%)`
-                }}
-              >
-                <span className={`label ${seg.includes("JACKPOT") ? "jackpot" : ""}`}>
-                  {seg}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button onClick={spin}>
-          {spinning ? "Spinning..." : "🎡 Spin"}
-        </button>
-
-        <div>
-          💰 Total: ₦{total} | 🏆 Won: ₦{won}
-        </div>
-
-        <p>{result}</p>
-
-        {countdown && <p>Resetting in {countdown}s...</p>}
-
-        {overlay && (
-          <div style={{
-            position:"fixed",
-            top:0,left:0,width:"100%",height:"100%",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            background:"rgba(0,0,0,0.7)",
-            fontSize:"32px"
-          }}>
-            {overlay === "win" ? "🏆 WIN!" : "😢 LOST"}
-          </div>
-        )}
-
-        {flowers.map(f => (
-          <div key={f.id} className="confetti" style={{ left:`${f.left}%` }}>
-            🌸
-          </div>
-        ))}
-      </div>
-    </>
-  );
+    updateScore();
+    resetBall();
+    shooting = false;
+  }, 700);
 }
+
+function resetBall() {
+  ball.style.transition = "none";
+  ball.style.bottom = "60px";
+  ball.style.left = "160px";
+}
+
+function updateScore() {
+  document.getElementById("goals").textContent = goals;
+  document.getElementById("misses").textContent = misses;
+}
+
+function resetGame() {
+  goals = 0;
+  misses = 0;
+  updateScore();
+  resetBall();
+  keeper.style.left = "160px";
+}
+</script>
+
+</body>
+</html>
+  
