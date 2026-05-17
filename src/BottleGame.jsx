@@ -1,160 +1,145 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Penalty Shootout Game</title>
+import { useState, useRef } from "react";
 
-<style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #0b6623;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: white;
-  }
+export default function PenaltyGame() {
+  const [goals, setGoals] = useState(0);
+  const [misses, setMisses] = useState(0);
+  const [message, setMessage] = useState("Click Shoot!");
 
-  h1 {
-    margin: 10px;
-  }
+  const ballRef = useRef(null);
+  const keeperRef = useRef(null);
+  const shooting = useRef(false);
 
-  #game {
-    position: relative;
-    width: 360px;
-    height: 500px;
-    background: #1f8f3a;
-    border: 3px solid white;
-    overflow: hidden;
-  }
+  const shoot = () => {
+    if (shooting.current) return;
+    shooting.current = true;
 
-  .goal {
-    position: absolute;
-    top: 20px;
-    width: 100%;
-    height: 120px;
-    border-bottom: 4px solid white;
-  }
+    const targetX = Math.floor(Math.random() * 260);
+    const keeperMove = Math.floor(Math.random() * 260);
 
-  .keeper {
-    position: absolute;
-    top: 60px;
-    left: 160px;
-    width: 40px;
-    height: 40px;
-    background: yellow;
-    border-radius: 50%;
-    transition: 0.4s;
-  }
-
-  .ball {
-    position: absolute;
-    bottom: 60px;
-    left: 160px;
-    width: 25px;
-    height: 25px;
-    background: white;
-    border-radius: 50%;
-  }
-
-  #controls {
-    margin-top: 10px;
-  }
-
-  button {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-  }
-
-  #score {
-    margin-top: 10px;
-  }
-</style>
-</head>
-
-<body>
-
-<h1>⚽ Penalty Shootout</h1>
-
-<div id="game">
-  <div class="goal"></div>
-  <div class="keeper" id="keeper"></div>
-  <div class="ball" id="ball"></div>
-</div>
-
-<div id="controls">
-  <button onclick="shoot()">Shoot</button>
-  <button onclick="resetGame()">Reset</button>
-</div>
-
-<div id="score">
-  Goals: <span id="goals">0</span> |
-  Misses: <span id="misses">0</span>
-</div>
-
-<script>
-let goals = 0;
-let misses = 0;
-let shooting = false;
-
-const ball = document.getElementById("ball");
-const keeper = document.getElementById("keeper");
-
-function shoot() {
-  if (shooting) return;
-  shooting = true;
-
-  // random shot direction
-  const targetX = Math.floor(Math.random() * 300);
-
-  // goalkeeper dive
-  const keeperMove = Math.floor(Math.random() * 300);
-  keeper.style.left = keeperMove + "px";
-
-  // animate ball
-  ball.style.transition = "0.6s";
-  ball.style.bottom = "380px";
-  ball.style.left = targetX + "px";
-
-  setTimeout(() => {
-    const difference = Math.abs(targetX - keeperMove);
-
-    if (difference < 40) {
-      misses++;
-      alert("❌ Saved by goalkeeper!");
-    } else {
-      goals++;
-      alert("⚽ GOAL!");
+    // Move keeper
+    if (keeperRef.current) {
+      keeperRef.current.style.left = keeperMove + "px";
     }
 
-    updateScore();
+    // Move ball
+    if (ballRef.current) {
+      ballRef.current.style.transition = "0.6s ease-out";
+      ballRef.current.style.bottom = "360px";
+      ballRef.current.style.left = targetX + "px";
+    }
+
+    setTimeout(() => {
+      const diff = Math.abs(targetX - keeperMove);
+
+      if (diff < 45) {
+        setMisses((m) => m + 1);
+        setMessage("❌ SAVED!");
+      } else {
+        setGoals((g) => g + 1);
+        setMessage("⚽ GOAL!");
+      }
+
+      resetBall();
+      shooting.current = false;
+    }, 700);
+  };
+
+  const resetBall = () => {
+    if (ballRef.current) {
+      ballRef.current.style.transition = "none";
+      ballRef.current.style.bottom = "40px";
+      ballRef.current.style.left = "160px";
+    }
+  };
+
+  const resetGame = () => {
+    setGoals(0);
+    setMisses(0);
+    setMessage("Click Shoot!");
+
+    if (keeperRef.current) keeperRef.current.style.left = "160px";
     resetBall();
-    shooting = false;
-  }, 700);
+  };
+
+  return (
+    <div style={styles.page}>
+      <h1>⚽ Penalty Shootout Game</h1>
+
+      <div style={styles.game}>
+        <div style={styles.goal}></div>
+
+        <div ref={keeperRef} style={styles.keeper}></div>
+
+        <div ref={ballRef} style={styles.ball}></div>
+      </div>
+
+      <div style={styles.controls}>
+        <button onClick={shoot}>Shoot</button>
+        <button onClick={resetGame}>Reset</button>
+      </div>
+
+      <h3>{message}</h3>
+
+      <p>
+        Goals: {goals} | Misses: {misses}
+      </p>
+    </div>
+  );
 }
 
-function resetBall() {
-  ball.style.transition = "none";
-  ball.style.bottom = "60px";
-  ball.style.left = "160px";
-}
+const styles = {
+  page: {
+    textAlign: "center",
+    fontFamily: "Arial",
+    background: "#0b6623",
+    minHeight: "100vh",
+    color: "white",
+    paddingTop: 20,
+  },
 
-function updateScore() {
-  document.getElementById("goals").textContent = goals;
-  document.getElementById("misses").textContent = misses;
-}
+  game: {
+    position: "relative",
+    width: 360,
+    height: 500,
+    margin: "0 auto",
+    background: "#1f8f3a",
+    border: "3px solid white",
+    overflow: "hidden",
+  },
 
-function resetGame() {
-  goals = 0;
-  misses = 0;
-  updateScore();
-  resetBall();
-  keeper.style.left = "160px";
-}
-</script>
+  goal: {
+    position: "absolute",
+    top: 20,
+    width: "100%",
+    height: 120,
+    borderBottom: "4px solid white",
+  },
 
-</body>
-</html>
-  
+  keeper: {
+    position: "absolute",
+    top: 70,
+    left: 160,
+    width: 40,
+    height: 40,
+    background: "yellow",
+    borderRadius: "50%",
+    transition: "0.4s",
+  },
+
+  ball: {
+    position: "absolute",
+    bottom: 40,
+    left: 160,
+    width: 25,
+    height: 25,
+    background: "white",
+    borderRadius: "50%",
+  },
+
+  controls: {
+    marginTop: 15,
+    display: "flex",
+    justifyContent: "center",
+    gap: 10,
+  },
+};
