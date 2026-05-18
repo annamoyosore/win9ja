@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function PenaltyShootout() {
   const [wallet, setWallet] = useState(1000);
@@ -13,9 +13,25 @@ export default function PenaltyShootout() {
   const keeperRef = useRef(null);
   const playerRef = useRef(null);
 
+  const shootSound = useRef(null);
+  const saveSound = useRef(null);
+  const goalSound = useRef(null);
+
   const shooting = useRef(false);
 
   const positions = [70, 160, 250];
+
+  useEffect(() => {
+    shootSound.current = new Audio(
+      "https://assets.mixkit.co/sfx/preview/mixkit-football-kick-2058.mp3"
+    );
+    saveSound.current = new Audio(
+      "https://assets.mixkit.co/sfx/preview/mixkit-soccer-goalkeeper-save-2339.mp3"
+    );
+    goalSound.current = new Audio(
+      "https://assets.mixkit.co/sfx/preview/mixkit-football-crowd-cheer-431.mp3"
+    );
+  }, []);
 
   const shoot = (dir) => {
     if (shooting.current) return;
@@ -28,53 +44,56 @@ export default function PenaltyShootout() {
     shooting.current = true;
     setWallet((w) => w - stake);
 
-    let targetX = 160;
-    if (dir === "left") targetX = 70;
-    if (dir === "right") targetX = 250;
+    shootSound.current?.play();
+
+    let targetX = dir === "left" ? 70 : dir === "right" ? 250 : 160;
 
     const keeperMove =
       positions[Math.floor(Math.random() * positions.length)];
 
-    // Move keeper (IMAGE)
+    // 🧤 FASTER keeper reaction
     if (keeperRef.current) {
+      keeperRef.current.style.transition = "0.25s";
       keeperRef.current.style.left = keeperMove + "px";
     }
 
-    // Move player (IMAGE)
     if (playerRef.current) {
       playerRef.current.style.left = targetX - 20 + "px";
     }
 
-    // Ball animation
     if (ballRef.current) {
-      ballRef.current.style.transition = "0.7s ease-out";
+      ballRef.current.style.transition = "0.6s ease-out";
       ballRef.current.style.left = targetX + "px";
-      ballRef.current.style.bottom = "320px";
+      ballRef.current.style.bottom = "330px";
     }
 
     setTimeout(() => {
       const diff = Math.abs(targetX - keeperMove);
-      const luckyGoal = Math.random() < 0.4;
 
-      // SAVE
-      if (diff < 55 || !luckyGoal) {
+      // 🔥 HIGHER SAVE RATE (harder scoring)
+      const luckyGoal = Math.random() < 0.3;
+
+      if (diff < 70 || !luckyGoal) {
+        // SAVE
+        saveSound.current?.play();
+
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
           ballRef.current.style.left = keeperMove + "px";
-          ballRef.current.style.bottom = "240px";
+          ballRef.current.style.bottom = "250px";
         }
 
         setMisses((m) => m + 1);
         setMessage("🧤 SAVED!");
-      } 
-      
-      // GOAL
-      else {
+      } else {
+        // GOAL
+        goalSound.current?.play();
+
         const reward = stake * 2;
 
         if (ballRef.current) {
           ballRef.current.style.transition = "0.25s";
-          ballRef.current.style.bottom = "390px";
+          ballRef.current.style.bottom = "410px";
         }
 
         setGoals((g) => g + 1);
@@ -85,15 +104,12 @@ export default function PenaltyShootout() {
       setTimeout(() => {
         resetBall();
         shooting.current = false;
-      }, 600);
-    }, 700);
+      }, 700);
+    }, 650);
   };
 
   const collectPot = () => {
-    if (pot <= 0) {
-      setMessage("No winnings to collect");
-      return;
-    }
+    if (pot <= 0) return setMessage("No winnings to collect");
 
     setWallet((w) => w + pot);
     setPot(0);
@@ -110,16 +126,13 @@ export default function PenaltyShootout() {
     if (playerRef.current) {
       playerRef.current.style.left = "135px";
     }
-
-    if (keeperRef.current) {
-      keeperRef.current.style.left = "160px";
-    }
   };
 
   return (
     <div style={styles.page}>
-      <h1>⚽ Penalty Shootout Game</h1>
+      <h1>⚽ Penalty Shootout</h1>
 
+      {/* SCOREBOARD */}
       <div style={styles.topBar}>
         <div>Wallet: ${wallet}</div>
         <div>Stake: ${stake}</div>
@@ -128,43 +141,47 @@ export default function PenaltyShootout() {
         <div>Misses: {misses}</div>
       </div>
 
-      <div style={styles.stakeBox}>
-        <label>Stake:</label>
-        <input
-          type="number"
-          value={stake}
-          onChange={(e) => setStake(Number(e.target.value))}
-          style={styles.input}
-        />
-      </div>
+      <input
+        type="number"
+        value={stake}
+        onChange={(e) => setStake(Number(e.target.value))}
+        style={styles.input}
+      />
 
+      {/* STADIUM */}
       <div style={styles.game}>
-        <div style={styles.goal}></div>
+        {/* CROWD ANIMATION */}
+        <div style={styles.crowd}></div>
 
-        {/* Keeper Image */}
+        {/* GOAL POST IMAGE */}
+        <img
+          src="https://cdn-icons-png.flaticon.com/512/883/883407.png"
+          style={styles.goalPost}
+        />
+
+        {/* GOALKEEPER */}
         <img
           ref={keeperRef}
           src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png"
-          alt="keeper"
           style={styles.keeper}
         />
 
-        {/* Ball */}
+        {/* BALL */}
         <div ref={ballRef} style={styles.ball}></div>
 
-        {/* Player Image */}
+        {/* PLAYER */}
         <img
           ref={playerRef}
           src="https://cdn-icons-png.flaticon.com/512/921/921124.png"
-          alt="player"
           style={styles.player}
         />
       </div>
 
+      {/* CONTROLS */}
       <div style={styles.controls}>
-        <button onClick={() => shoot("left")}>Shoot Left</button>
-        <button onClick={() => shoot("center")}>Shoot Center</button>
-        <button onClick={() => shoot("right")}>Shoot Right</button>
+        <button onClick={() => shoot("left")}>Left</button>
+        <button onClick={() => shoot("center")}>Center</button>
+        <button onClick={() => shoot("right")}>Right</button>
         <button onClick={collectPot}>Collect Pot</button>
       </div>
 
@@ -176,10 +193,10 @@ export default function PenaltyShootout() {
 const styles = {
   page: {
     textAlign: "center",
-    fontFamily: "Arial",
     background: "#0b6623",
-    minHeight: "100vh",
     color: "white",
+    minHeight: "100vh",
+    fontFamily: "Arial",
     paddingTop: 20,
   },
 
@@ -187,46 +204,52 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     gap: 15,
-    fontWeight: "bold",
-    marginBottom: 10,
     flexWrap: "wrap",
-  },
-
-  stakeBox: {
-    marginBottom: 10,
+    fontWeight: "bold",
   },
 
   input: {
-    marginLeft: 10,
+    marginTop: 10,
     padding: 5,
-    width: 80,
+    width: 90,
   },
 
   game: {
     position: "relative",
     width: 360,
     height: 500,
-    margin: "0 auto",
-    background: "#1f8f3a",
-    border: "3px solid white",
+    margin: "20px auto",
+    background: "linear-gradient(#1f8f3a, #0c5f2a)",
+    border: "4px solid white",
     overflow: "hidden",
+    borderRadius: 12,
   },
 
-  goal: {
+  crowd: {
     position: "absolute",
-    top: 20,
+    top: 0,
     width: "100%",
-    height: 120,
-    borderBottom: "4px solid white",
+    height: 60,
+    background:
+      "repeating-radial-gradient(circle, white 0 2px, transparent 3px 10px)",
+    animation: "crowdMove 1s infinite linear",
+    opacity: 0.5,
+  },
+
+  goalPost: {
+    position: "absolute",
+    top: 15,
+    left: 80,
+    width: 200,
+    opacity: 0.9,
   },
 
   keeper: {
     position: "absolute",
-    top: 70,
+    top: 90,
     left: 160,
     width: 60,
-    height: 60,
-    transition: "0.4s",
+    transition: "0.25s",
   },
 
   player: {
@@ -234,7 +257,6 @@ const styles = {
     bottom: 10,
     left: 135,
     width: 70,
-    height: 70,
     transition: "0.3s",
   },
 
@@ -250,10 +272,10 @@ const styles = {
   },
 
   controls: {
-    marginTop: 15,
     display: "flex",
     justifyContent: "center",
     gap: 10,
+    marginTop: 15,
     flexWrap: "wrap",
   },
 };
