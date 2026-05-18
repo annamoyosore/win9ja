@@ -1,81 +1,56 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
-export default function PenaltyShootout() {
+export default function PenaltyShootoutAI() {
   const [wallet, setWallet] = useState(1000);
   const [stake, setStake] = useState(50);
   const [pot, setPot] = useState(0);
-
-  const [goals, setGoals] = useState(0);
-  const [misses, setMisses] = useState(0);
-  const [message, setMessage] = useState("Choose direction!");
+  const [message, setMessage] = useState("Tap inside the goal!");
 
   const ballRef = useRef(null);
   const keeperRef = useRef(null);
   const playerRef = useRef(null);
 
-  const shootSound = useRef(null);
-  const saveSound = useRef(null);
-  const goalSound = useRef(null);
-
   const shooting = useRef(false);
 
-  const positions = [70, 160, 250];
-
-  useEffect(() => {
-    shootSound.current = new Audio(
-      "https://assets.mixkit.co/sfx/preview/mixkit-football-kick-2058.mp3"
-    );
-    saveSound.current = new Audio(
-      "https://assets.mixkit.co/sfx/preview/mixkit-soccer-goalkeeper-save-2339.mp3"
-    );
-    goalSound.current = new Audio(
-      "https://assets.mixkit.co/sfx/preview/mixkit-football-crowd-cheer-431.mp3"
-    );
-  }, []);
-
-  const shoot = (dir) => {
+  const shoot = (e) => {
     if (shooting.current) return;
 
     if (wallet < stake) {
-      setMessage("❌ Not enough wallet balance");
+      setMessage("❌ Not enough balance");
       return;
     }
 
     shooting.current = true;
     setWallet((w) => w - stake);
 
-    shootSound.current?.play();
+    const rect = e.currentTarget.getBoundingClientRect();
 
-    let targetX = dir === "left" ? 70 : dir === "right" ? 250 : 160;
+    // 🎯 tap position inside goal
+    const x = e.clientX - rect.left;
 
-    const keeperMove =
-      positions[Math.floor(Math.random() * positions.length)];
+    const goalX = Math.max(40, Math.min(320, x)); // clamp inside goal
 
-    // 🧤 keeper quick dive
+    const keeperMove = 40 + Math.random() * 240;
+
+    // 🧤 keeper reacts slightly late (realistic)
     if (keeperRef.current) {
-      keeperRef.current.style.transition = "0.2s";
+      keeperRef.current.style.transition = "0.25s";
       keeperRef.current.style.left = keeperMove + "px";
     }
 
-    // 👤 player move
-    if (playerRef.current) {
-      playerRef.current.style.left = targetX - 20 + "px";
-    }
-
-    // ⚽ ball shoot
     if (ballRef.current) {
-      ballRef.current.style.transition = "0.6s ease-out";
-      ballRef.current.style.left = targetX + "px";
-      ballRef.current.style.bottom = "340px";
+      ballRef.current.style.transition = "0.7s ease-out";
+      ballRef.current.style.left = goalX + "px";
+      ballRef.current.style.bottom = "380px";
     }
 
     setTimeout(() => {
-      const diff = Math.abs(targetX - keeperMove);
-      const luckyGoal = Math.random() < 0.28; // harder scoring
+      const diff = Math.abs(goalX - keeperMove);
 
-      if (diff < 70 || !luckyGoal) {
-        // 🧤 SAVE
-        saveSound.current?.play();
+      const saved = diff < 60 && Math.random() < 0.75;
+
+      if (saved) {
+        setMessage("🧤 SAVED!");
 
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
@@ -83,65 +58,53 @@ export default function PenaltyShootout() {
           ballRef.current.style.bottom = "260px";
         }
 
-        setMisses((m) => m + 1);
-        setMessage("🧤 SAVED!");
-      } else {
-        // ⚽ GOAL
-        goalSound.current?.play();
-
-        const reward = stake * 2;
-
-        if (ballRef.current) {
-          ballRef.current.style.transition = "0.25s";
-          ballRef.current.style.bottom = "420px";
-        }
-
-        setGoals((g) => g + 1);
-        setPot((p) => p + reward);
-        setMessage(`⚽ GOAL! +${reward}`);
+        shooting.current = false;
+        return;
       }
 
+      const reward = stake * 2;
+
+      if (ballRef.current) {
+        ballRef.current.style.transition = "0.25s";
+        ballRef.current.style.bottom = "420px";
+      }
+
+      setPot((p) => p + reward);
+      setMessage(`⚽ GOAL! +${reward}`);
+
       setTimeout(() => {
-        resetBall();
-        shooting.current = false;
+        reset();
       }, 700);
     }, 650);
   };
 
-  const collectPot = () => {
-    if (pot <= 0) return setMessage("No winnings to collect");
-
+  const collect = () => {
     setWallet((w) => w + pot);
     setPot(0);
-    setMessage("💰 Collected to wallet!");
+    setMessage("💰 Collected!");
   };
 
-  const resetBall = () => {
+  const reset = () => {
     if (ballRef.current) {
       ballRef.current.style.transition = "none";
       ballRef.current.style.left = "160px";
       ballRef.current.style.bottom = "40px";
     }
 
-    if (playerRef.current) {
-      playerRef.current.style.left = "135px";
-    }
+    if (playerRef.current) playerRef.current.style.left = "135px";
+    if (keeperRef.current) keeperRef.current.style.left = "160px";
 
-    if (keeperRef.current) {
-      keeperRef.current.style.left = "160px";
-    }
+    shooting.current = false;
   };
 
   return (
     <div style={styles.page}>
-      <h1>⚽ Penalty Shootout</h1>
+      <h1>⚽ Tap-to-Shoot Penalty Game</h1>
 
-      <div style={styles.topBar}>
+      <div style={styles.top}>
         <div>Wallet: ${wallet}</div>
         <div>Stake: ${stake}</div>
         <div>Pot: ${pot}</div>
-        <div>Goals: {goals}</div>
-        <div>Misses: {misses}</div>
       </div>
 
       <input
@@ -152,27 +115,23 @@ export default function PenaltyShootout() {
       />
 
       <div style={styles.game}>
-        {/* crowd animation */}
-        <div style={styles.crowd}></div>
+        {/* GOAL AREA (CLICKABLE) */}
+        <div style={styles.goalArea} onClick={shoot}>
+          <div style={styles.goalPost}></div>
+          <div style={styles.goalText}>TAP TO SHOOT</div>
+        </div>
 
-        {/* REAL WHITE GOAL POST */}
-        <img
-          src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Football_goal_post.svg"
-          style={styles.goalPost}
-          alt="goal"
-        />
-
-        {/* keeper */}
+        {/* KEEPER */}
         <img
           ref={keeperRef}
           src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png"
           style={styles.keeper}
         />
 
-        {/* ball */}
+        {/* BALL */}
         <div ref={ballRef} style={styles.ball}></div>
 
-        {/* player */}
+        {/* PLAYER */}
         <img
           ref={playerRef}
           src="https://cdn-icons-png.flaticon.com/512/921/921124.png"
@@ -181,10 +140,7 @@ export default function PenaltyShootout() {
       </div>
 
       <div style={styles.controls}>
-        <button onClick={() => shoot("left")}>Left</button>
-        <button onClick={() => shoot("center")}>Center</button>
-        <button onClick={() => shoot("right")}>Right</button>
-        <button onClick={collectPot}>Collect Pot</button>
+        <button onClick={collect}>Collect Pot</button>
       </div>
 
       <h2>{message}</h2>
@@ -202,12 +158,11 @@ const styles = {
     paddingTop: 20,
   },
 
-  topBar: {
+  top: {
     display: "flex",
     justifyContent: "center",
     gap: 15,
     fontWeight: "bold",
-    flexWrap: "wrap",
   },
 
   input: {
@@ -221,31 +176,37 @@ const styles = {
     width: 360,
     height: 500,
     margin: "20px auto",
-    background: "linear-gradient(#1f8f3a, #0c5f2a)",
+    background: "#1f8f3a",
     border: "4px solid white",
     overflow: "hidden",
-    borderRadius: 12,
   },
 
-  crowd: {
+  goalArea: {
     position: "absolute",
-    top: 0,
-    width: "100%",
-    height: 50,
-    background:
-      "repeating-radial-gradient(circle, white 0 2px, transparent 3px 10px)",
-    opacity: 0.4,
-    animation: "crowdMove 1s infinite linear",
+    top: 10,
+    left: 20,
+    width: 320,
+    height: 180,
+    cursor: "pointer",
   },
 
   goalPost: {
     position: "absolute",
-    top: 10,
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    border: "4px solid white",
+    boxSizing: "border-box",
+  },
+
+  goalText: {
+    position: "absolute",
+    top: 70,
     left: "50%",
     transform: "translateX(-50%)",
-    width: 260,
-    height: 140,
-    zIndex: 2,
+    fontWeight: "bold",
+    opacity: 0.5,
   },
 
   keeper: {
@@ -253,8 +214,7 @@ const styles = {
     top: 90,
     left: 160,
     width: 60,
-    transition: "0.2s",
-    zIndex: 3,
+    transition: "0.25s",
   },
 
   player: {
@@ -273,14 +233,9 @@ const styles = {
     height: 20,
     background: "white",
     borderRadius: "50%",
-    border: "2px solid black",
   },
 
   controls: {
-    display: "flex",
-    justifyContent: "center",
-    gap: 10,
     marginTop: 15,
-    flexWrap: "wrap",
   },
 };
