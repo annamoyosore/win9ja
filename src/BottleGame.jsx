@@ -51,49 +51,49 @@ export default function PenaltyShootout() {
     const keeperMove =
       positions[Math.floor(Math.random() * positions.length)];
 
-    // 🧤 FASTER keeper reaction
+    // 🧤 keeper quick dive
     if (keeperRef.current) {
-      keeperRef.current.style.transition = "0.25s";
+      keeperRef.current.style.transition = "0.2s";
       keeperRef.current.style.left = keeperMove + "px";
     }
 
+    // 👤 player move
     if (playerRef.current) {
       playerRef.current.style.left = targetX - 20 + "px";
     }
 
+    // ⚽ ball shoot
     if (ballRef.current) {
       ballRef.current.style.transition = "0.6s ease-out";
       ballRef.current.style.left = targetX + "px";
-      ballRef.current.style.bottom = "330px";
+      ballRef.current.style.bottom = "340px";
     }
 
     setTimeout(() => {
       const diff = Math.abs(targetX - keeperMove);
-
-      // 🔥 HIGHER SAVE RATE (harder scoring)
-      const luckyGoal = Math.random() < 0.3;
+      const luckyGoal = Math.random() < 0.28; // harder scoring
 
       if (diff < 70 || !luckyGoal) {
-        // SAVE
+        // 🧤 SAVE
         saveSound.current?.play();
 
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
           ballRef.current.style.left = keeperMove + "px";
-          ballRef.current.style.bottom = "250px";
+          ballRef.current.style.bottom = "260px";
         }
 
         setMisses((m) => m + 1);
         setMessage("🧤 SAVED!");
       } else {
-        // GOAL
+        // ⚽ GOAL
         goalSound.current?.play();
 
         const reward = stake * 2;
 
         if (ballRef.current) {
           ballRef.current.style.transition = "0.25s";
-          ballRef.current.style.bottom = "410px";
+          ballRef.current.style.bottom = "420px";
         }
 
         setGoals((g) => g + 1);
@@ -126,13 +126,16 @@ export default function PenaltyShootout() {
     if (playerRef.current) {
       playerRef.current.style.left = "135px";
     }
+
+    if (keeperRef.current) {
+      keeperRef.current.style.left = "160px";
+    }
   };
 
   return (
     <div style={styles.page}>
       <h1>⚽ Penalty Shootout</h1>
 
-      {/* SCOREBOARD */}
       <div style={styles.topBar}>
         <div>Wallet: ${wallet}</div>
         <div>Stake: ${stake}</div>
@@ -148,28 +151,28 @@ export default function PenaltyShootout() {
         style={styles.input}
       />
 
-      {/* STADIUM */}
       <div style={styles.game}>
-        {/* CROWD ANIMATION */}
+        {/* crowd animation */}
         <div style={styles.crowd}></div>
 
-        {/* GOAL POST IMAGE */}
+        {/* REAL WHITE GOAL POST */}
         <img
-          src="https://cdn-icons-png.flaticon.com/512/883/883407.png"
+          src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Football_goal_post.svg"
           style={styles.goalPost}
+          alt="goal"
         />
 
-        {/* GOALKEEPER */}
+        {/* keeper */}
         <img
           ref={keeperRef}
           src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png"
           style={styles.keeper}
         />
 
-        {/* BALL */}
+        {/* ball */}
         <div ref={ballRef} style={styles.ball}></div>
 
-        {/* PLAYER */}
+        {/* player */}
         <img
           ref={playerRef}
           src="https://cdn-icons-png.flaticon.com/512/921/921124.png"
@@ -177,7 +180,6 @@ export default function PenaltyShootout() {
         />
       </div>
 
-      {/* CONTROLS */}
       <div style={styles.controls}>
         <button onClick={() => shoot("left")}>Left</button>
         <button onClick={() => shoot("center")}>Center</button>
@@ -204,13 +206,13 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     gap: 15,
-    flexWrap: "wrap",
     fontWeight: "bold",
+    flexWrap: "wrap",
   },
 
   input: {
     marginTop: 10,
-    padding: 5,
+    padding: 6,
     width: 90,
   },
 
@@ -229,19 +231,21 @@ const styles = {
     position: "absolute",
     top: 0,
     width: "100%",
-    height: 60,
+    height: 50,
     background:
       "repeating-radial-gradient(circle, white 0 2px, transparent 3px 10px)",
+    opacity: 0.4,
     animation: "crowdMove 1s infinite linear",
-    opacity: 0.5,
   },
 
   goalPost: {
     position: "absolute",
-    top: 15,
-    left: 80,
-    width: 200,
-    opacity: 0.9,
+    top: 10,
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: 260,
+    height: 140,
+    zIndex: 2,
   },
 
   keeper: {
@@ -249,7 +253,8 @@ const styles = {
     top: 90,
     left: 160,
     width: 60,
-    transition: "0.25s",
+    transition: "0.2s",
+    zIndex: 3,
   },
 
   player: {
