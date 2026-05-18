@@ -12,6 +12,7 @@ export default function PenaltyShootout() {
   const ballRef = useRef(null);
   const keeperRef = useRef(null);
   const playerRef = useRef(null);
+
   const shooting = useRef(false);
 
   const positions = [70, 160, 250];
@@ -34,14 +35,17 @@ export default function PenaltyShootout() {
     const keeperMove =
       positions[Math.floor(Math.random() * positions.length)];
 
+    // Move keeper (IMAGE)
     if (keeperRef.current) {
       keeperRef.current.style.left = keeperMove + "px";
     }
 
+    // Move player (IMAGE)
     if (playerRef.current) {
       playerRef.current.style.left = targetX - 20 + "px";
     }
 
+    // Ball animation
     if (ballRef.current) {
       ballRef.current.style.transition = "0.7s ease-out";
       ballRef.current.style.left = targetX + "px";
@@ -52,8 +56,8 @@ export default function PenaltyShootout() {
       const diff = Math.abs(targetX - keeperMove);
       const luckyGoal = Math.random() < 0.4;
 
+      // SAVE
       if (diff < 55 || !luckyGoal) {
-        // SAVE
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
           ballRef.current.style.left = keeperMove + "px";
@@ -62,8 +66,10 @@ export default function PenaltyShootout() {
 
         setMisses((m) => m + 1);
         setMessage("🧤 SAVED!");
-      } else {
-        // GOAL
+      } 
+      
+      // GOAL
+      else {
         const reward = stake * 2;
 
         if (ballRef.current) {
@@ -73,7 +79,7 @@ export default function PenaltyShootout() {
 
         setGoals((g) => g + 1);
         setPot((p) => p + reward);
-        setMessage(`⚽ GOAL! +${reward} to pot`);
+        setMessage(`⚽ GOAL! +${reward}`);
       }
 
       setTimeout(() => {
@@ -91,7 +97,7 @@ export default function PenaltyShootout() {
 
     setWallet((w) => w + pot);
     setPot(0);
-    setMessage("💰 Pot collected to wallet!");
+    setMessage("💰 Collected to wallet!");
   };
 
   const resetBall = () => {
@@ -104,6 +110,10 @@ export default function PenaltyShootout() {
     if (playerRef.current) {
       playerRef.current.style.left = "135px";
     }
+
+    if (keeperRef.current) {
+      keeperRef.current.style.left = "160px";
+    }
   };
 
   return (
@@ -112,6 +122,7 @@ export default function PenaltyShootout() {
 
       <div style={styles.topBar}>
         <div>Wallet: ${wallet}</div>
+        <div>Stake: ${stake}</div>
         <div>Pot: ${pot}</div>
         <div>Goals: {goals}</div>
         <div>Misses: {misses}</div>
@@ -130,11 +141,24 @@ export default function PenaltyShootout() {
       <div style={styles.game}>
         <div style={styles.goal}></div>
 
-        <div ref={keeperRef} style={styles.keeper}></div>
+        {/* Keeper Image */}
+        <img
+          ref={keeperRef}
+          src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png"
+          alt="keeper"
+          style={styles.keeper}
+        />
 
+        {/* Ball */}
         <div ref={ballRef} style={styles.ball}></div>
 
-        <div ref={playerRef} style={styles.player}></div>
+        {/* Player Image */}
+        <img
+          ref={playerRef}
+          src="https://cdn-icons-png.flaticon.com/512/921/921124.png"
+          alt="player"
+          style={styles.player}
+        />
       </div>
 
       <div style={styles.controls}>
@@ -162,9 +186,10 @@ const styles = {
   topBar: {
     display: "flex",
     justifyContent: "center",
-    gap: 20,
+    gap: 15,
     fontWeight: "bold",
     marginBottom: 10,
+    flexWrap: "wrap",
   },
 
   stakeBox: {
@@ -199,10 +224,8 @@ const styles = {
     position: "absolute",
     top: 70,
     left: 160,
-    width: 40,
-    height: 40,
-    background: "yellow",
-    borderRadius: "50%",
+    width: 60,
+    height: 60,
     transition: "0.4s",
   },
 
@@ -210,10 +233,8 @@ const styles = {
     position: "absolute",
     bottom: 10,
     left: 135,
-    width: 50,
-    height: 50,
-    background: "blue",
-    borderRadius: "50%",
+    width: 70,
+    height: 70,
     transition: "0.3s",
   },
 
@@ -225,6 +246,7 @@ const styles = {
     height: 20,
     background: "white",
     borderRadius: "50%",
+    border: "2px solid black",
   },
 
   controls: {
