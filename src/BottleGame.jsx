@@ -24,47 +24,53 @@ export default function PenaltyShootoutAI() {
     setWallet((w) => w - stake);
 
     const rect = e.currentTarget.getBoundingClientRect();
-
-    // 🎯 tap position inside goal
     const x = e.clientX - rect.left;
+
     const goalX = Math.max(40, Math.min(320, x));
 
-    const keeperMove = 40 + Math.random() * 240;
+    // 🧤 keeper AI predicts direction (SWIPE)
+    let keeperMove = 160;
 
-    // 🧤 keeper reacts quickly (elite AI)
+    if (goalX < 130) keeperMove = 90;      // left swipe
+    else if (goalX > 210) keeperMove = 250; // right swipe
+    else keeperMove = 160;                 // center
+
+    // add slight AI delay + error (human-like)
+    keeperMove += (Math.random() - 0.5) * 40;
+
+    // 🧤 HIGHER keeper position (FIX)
     if (keeperRef.current) {
-      keeperRef.current.style.transition = "0.2s";
+      keeperRef.current.style.transition = "0.18s";
       keeperRef.current.style.left = keeperMove + "px";
+      keeperRef.current.style.top = "60px"; // higher jump position
     }
 
     if (playerRef.current) {
       playerRef.current.style.left = goalX - 20 + "px";
     }
 
+    // ⚽ ball shoot
     if (ballRef.current) {
       ballRef.current.style.transition = "0.65s ease-out";
       ballRef.current.style.left = goalX + "px";
-      ballRef.current.style.bottom = "380px";
+      ballRef.current.style.bottom = "390px";
     }
 
     setTimeout(() => {
       const diff = Math.abs(goalX - keeperMove);
 
-      // 🧤 90% SAVE SYSTEM (ELITE AI)
-      const isNearKeeper = diff < 90;
-      const saveChance = isNearKeeper ? 0.9 : 0.4;
-      const saved = Math.random() < saveChance;
+      const saved = diff < 75 && Math.random() < 0.85; // strong keeper (85%)
 
       if (saved) {
-        setMessage("🧤 INCREDIBLE SAVE!");
+        setMessage("🧤 GREAT SAVE!");
 
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
           ballRef.current.style.left = keeperMove + "px";
-          ballRef.current.style.bottom = "260px";
+          ballRef.current.style.bottom = "270px";
         }
 
-        shooting.current = false;
+        setTimeout(() => reset(), 600);
         return;
       }
 
@@ -73,37 +79,39 @@ export default function PenaltyShootoutAI() {
 
       if (ballRef.current) {
         ballRef.current.style.transition = "0.25s";
-        ballRef.current.style.bottom = "420px";
+        ballRef.current.style.bottom = "430px";
       }
 
       setPot((p) => p + reward);
       setMessage(`⚽ GOAL! +${reward}`);
 
-      setTimeout(() => {
-        reset();
-      }, 700);
+      setTimeout(() => reset(), 700);
     }, 650);
   };
 
   const collect = () => {
     setWallet((w) => w + pot);
     setPot(0);
-    setMessage("💰 Collected to wallet!");
+    setMessage("💰 Collected!");
   };
 
   const reset = () => {
+    // ⚽ BALL ALWAYS RETURNS (FIXED BUG)
     if (ballRef.current) {
       ballRef.current.style.transition = "none";
       ballRef.current.style.left = "160px";
       ballRef.current.style.bottom = "40px";
     }
 
+    // 👤 PLAYER RESET
     if (playerRef.current) {
       playerRef.current.style.left = "135px";
     }
 
+    // 🧤 KEEPER RESET (BACK TO CENTER + NORMAL HEIGHT)
     if (keeperRef.current) {
       keeperRef.current.style.left = "160px";
+      keeperRef.current.style.top = "90px";
     }
 
     shooting.current = false;
@@ -111,7 +119,7 @@ export default function PenaltyShootoutAI() {
 
   return (
     <div style={styles.page}>
-      <h1>⚽ Elite Penalty AI (90% Save Keeper)</h1>
+      <h1>⚽ Advanced Penalty AI Keeper</h1>
 
       <div style={styles.top}>
         <div>Wallet: ${wallet}</div>
@@ -127,23 +135,23 @@ export default function PenaltyShootoutAI() {
       />
 
       <div style={styles.game}>
-        {/* GOAL AREA (TAP TO SHOOT) */}
+        {/* GOAL AREA */}
         <div style={styles.goalArea} onClick={shoot}>
           <div style={styles.goalPost}></div>
-          <div style={styles.goalText}>TAP ANYWHERE TO SHOOT</div>
+          <div style={styles.goalText}>TAP TO SHOOT</div>
         </div>
 
-        {/* KEEPER */}
+        {/* 🧤 KEEPER (HIGH POSITION) */}
         <img
           ref={keeperRef}
           src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png"
           style={styles.keeper}
         />
 
-        {/* BALL */}
+        {/* ⚽ BALL */}
         <div ref={ballRef} style={styles.ball}></div>
 
-        {/* PLAYER */}
+        {/* 👤 PLAYER */}
         <img
           ref={playerRef}
           src="https://cdn-icons-png.flaticon.com/512/921/921124.png"
@@ -204,8 +212,6 @@ const styles = {
 
   goalPost: {
     position: "absolute",
-    top: 0,
-    left: 0,
     width: "100%",
     height: "100%",
     border: "4px solid white",
@@ -217,16 +223,16 @@ const styles = {
     top: 70,
     left: "50%",
     transform: "translateX(-50%)",
-    fontWeight: "bold",
     opacity: 0.4,
+    fontWeight: "bold",
   },
 
   keeper: {
     position: "absolute",
     top: 90,
     left: 160,
-    width: 60,
-    transition: "0.2s",
+    width: 70,
+    transition: "0.18s",
   },
 
   player: {
