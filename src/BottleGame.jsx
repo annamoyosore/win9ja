@@ -27,19 +27,22 @@ export default function PenaltyShootoutAI() {
 
     // 🎯 tap position inside goal
     const x = e.clientX - rect.left;
-
-    const goalX = Math.max(40, Math.min(320, x)); // clamp inside goal
+    const goalX = Math.max(40, Math.min(320, x));
 
     const keeperMove = 40 + Math.random() * 240;
 
-    // 🧤 keeper reacts slightly late (realistic)
+    // 🧤 keeper reacts quickly (elite AI)
     if (keeperRef.current) {
-      keeperRef.current.style.transition = "0.25s";
+      keeperRef.current.style.transition = "0.2s";
       keeperRef.current.style.left = keeperMove + "px";
     }
 
+    if (playerRef.current) {
+      playerRef.current.style.left = goalX - 20 + "px";
+    }
+
     if (ballRef.current) {
-      ballRef.current.style.transition = "0.7s ease-out";
+      ballRef.current.style.transition = "0.65s ease-out";
       ballRef.current.style.left = goalX + "px";
       ballRef.current.style.bottom = "380px";
     }
@@ -47,10 +50,13 @@ export default function PenaltyShootoutAI() {
     setTimeout(() => {
       const diff = Math.abs(goalX - keeperMove);
 
-      const saved = diff < 60 && Math.random() < 0.75;
+      // 🧤 90% SAVE SYSTEM (ELITE AI)
+      const isNearKeeper = diff < 90;
+      const saveChance = isNearKeeper ? 0.9 : 0.4;
+      const saved = Math.random() < saveChance;
 
       if (saved) {
-        setMessage("🧤 SAVED!");
+        setMessage("🧤 INCREDIBLE SAVE!");
 
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
@@ -62,6 +68,7 @@ export default function PenaltyShootoutAI() {
         return;
       }
 
+      // ⚽ GOAL
       const reward = stake * 2;
 
       if (ballRef.current) {
@@ -81,7 +88,7 @@ export default function PenaltyShootoutAI() {
   const collect = () => {
     setWallet((w) => w + pot);
     setPot(0);
-    setMessage("💰 Collected!");
+    setMessage("💰 Collected to wallet!");
   };
 
   const reset = () => {
@@ -91,15 +98,20 @@ export default function PenaltyShootoutAI() {
       ballRef.current.style.bottom = "40px";
     }
 
-    if (playerRef.current) playerRef.current.style.left = "135px";
-    if (keeperRef.current) keeperRef.current.style.left = "160px";
+    if (playerRef.current) {
+      playerRef.current.style.left = "135px";
+    }
+
+    if (keeperRef.current) {
+      keeperRef.current.style.left = "160px";
+    }
 
     shooting.current = false;
   };
 
   return (
     <div style={styles.page}>
-      <h1>⚽ Tap-to-Shoot Penalty Game</h1>
+      <h1>⚽ Elite Penalty AI (90% Save Keeper)</h1>
 
       <div style={styles.top}>
         <div>Wallet: ${wallet}</div>
@@ -115,10 +127,10 @@ export default function PenaltyShootoutAI() {
       />
 
       <div style={styles.game}>
-        {/* GOAL AREA (CLICKABLE) */}
+        {/* GOAL AREA (TAP TO SHOOT) */}
         <div style={styles.goalArea} onClick={shoot}>
           <div style={styles.goalPost}></div>
-          <div style={styles.goalText}>TAP TO SHOOT</div>
+          <div style={styles.goalText}>TAP ANYWHERE TO SHOOT</div>
         </div>
 
         {/* KEEPER */}
@@ -206,7 +218,7 @@ const styles = {
     left: "50%",
     transform: "translateX(-50%)",
     fontWeight: "bold",
-    opacity: 0.5,
+    opacity: 0.4,
   },
 
   keeper: {
@@ -214,7 +226,7 @@ const styles = {
     top: 90,
     left: 160,
     width: 60,
-    transition: "0.25s",
+    transition: "0.2s",
   },
 
   player: {
