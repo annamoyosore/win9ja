@@ -1,188 +1,150 @@
 import { useState, useRef } from "react";
 
-export default function PenaltyGame() {
+export default function PenaltyShootout() {
+  const [wallet, setWallet] = useState(1000);
+  const [stake, setStake] = useState(50);
+  const [pot, setPot] = useState(0);
+
   const [goals, setGoals] = useState(0);
   const [misses, setMisses] = useState(0);
-  const [message, setMessage] = useState("Choose Direction!");
+  const [message, setMessage] = useState("Choose direction!");
 
   const ballRef = useRef(null);
   const keeperRef = useRef(null);
   const playerRef = useRef(null);
-
   const shooting = useRef(false);
 
-  const shoot = (direction) => {
+  const positions = [70, 160, 250];
+
+  const shoot = (dir) => {
     if (shooting.current) return;
 
+    if (wallet < stake) {
+      setMessage("❌ Not enough wallet balance");
+      return;
+    }
+
     shooting.current = true;
+    setWallet((w) => w - stake);
 
     let targetX = 160;
-
-    if (direction === "left") targetX = 70;
-    if (direction === "right") targetX = 250;
-
-    // Keeper random movement
-    const keeperPositions = [70, 160, 250];
+    if (dir === "left") targetX = 70;
+    if (dir === "right") targetX = 250;
 
     const keeperMove =
-      keeperPositions[
-        Math.floor(Math.random() * keeperPositions.length)
-      ];
+      positions[Math.floor(Math.random() * positions.length)];
 
-    // Move goalkeeper
     if (keeperRef.current) {
       keeperRef.current.style.left = keeperMove + "px";
     }
 
-    // Move player
     if (playerRef.current) {
       playerRef.current.style.left = targetX - 20 + "px";
     }
 
-    // Initial ball animation
     if (ballRef.current) {
       ballRef.current.style.transition = "0.7s ease-out";
-      ballRef.current.style.bottom = "300px";
       ballRef.current.style.left = targetX + "px";
+      ballRef.current.style.bottom = "320px";
     }
 
     setTimeout(() => {
       const diff = Math.abs(targetX - keeperMove);
+      const luckyGoal = Math.random() < 0.4;
 
-      // Lower scoring chance
-      const luckyGoal = Math.random() < 0.45;
-
-      // SAVE
       if (diff < 55 || !luckyGoal) {
-
-        // Ball moves toward keeper
+        // SAVE
         if (ballRef.current) {
           ballRef.current.style.transition = "0.2s";
-          ballRef.current.style.left = keeperMove + 12 + "px";
-          ballRef.current.style.bottom = "230px";
+          ballRef.current.style.left = keeperMove + "px";
+          ballRef.current.style.bottom = "240px";
         }
 
         setMisses((m) => m + 1);
         setMessage("🧤 SAVED!");
-
       } else {
+        // GOAL
+        const reward = stake * 2;
 
-        // Ball enters goal
         if (ballRef.current) {
           ballRef.current.style.transition = "0.25s";
           ballRef.current.style.bottom = "390px";
         }
 
         setGoals((g) => g + 1);
-        setMessage("⚽ GOOOOAL!");
+        setPot((p) => p + reward);
+        setMessage(`⚽ GOAL! +${reward} to pot`);
       }
 
       setTimeout(() => {
         resetBall();
         shooting.current = false;
-      }, 650);
-
+      }, 600);
     }, 700);
   };
 
-  const resetBall = () => {
-
-    // Reset ball
-    if (ballRef.current) {
-      ballRef.current.style.transition = "none";
-      ballRef.current.style.bottom = "40px";
-      ballRef.current.style.left = "160px";
+  const collectPot = () => {
+    if (pot <= 0) {
+      setMessage("No winnings to collect");
+      return;
     }
 
-    // Reset player
+    setWallet((w) => w + pot);
+    setPot(0);
+    setMessage("💰 Pot collected to wallet!");
+  };
+
+  const resetBall = () => {
+    if (ballRef.current) {
+      ballRef.current.style.transition = "none";
+      ballRef.current.style.left = "160px";
+      ballRef.current.style.bottom = "40px";
+    }
+
     if (playerRef.current) {
       playerRef.current.style.left = "135px";
     }
   };
 
-  const resetGame = () => {
-    setGoals(0);
-    setMisses(0);
-    setMessage("Choose Direction!");
-
-    if (keeperRef.current) {
-      keeperRef.current.style.left = "160px";
-    }
-
-    resetBall();
-  };
-
   return (
     <div style={styles.page}>
-      <h1>⚽ Penalty Shootout</h1>
+      <h1>⚽ Penalty Shootout Game</h1>
 
-      <div style={styles.game}>
+      <div style={styles.topBar}>
+        <div>Wallet: ${wallet}</div>
+        <div>Pot: ${pot}</div>
+        <div>Goals: {goals}</div>
+        <div>Misses: {misses}</div>
+      </div>
 
-        {/* Goal Post */}
-        <div style={styles.goal}></div>
-
-        {/* Goal Net */}
-        <div style={styles.net}></div>
-
-        {/* Goalkeeper */}
-        <img
-          ref={keeperRef}
-          src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png"
-          alt="keeper"
-          style={styles.keeper}
-        />
-
-        {/* Ball */}
-        <div
-          ref={ballRef}
-          style={styles.ball}
-        ></div>
-
-        {/* Player */}
-        <img
-          ref={playerRef}
-          src="https://cdn-icons-png.flaticon.com/512/921/921124.png"
-          alt="player"
-          style={styles.player}
+      <div style={styles.stakeBox}>
+        <label>Stake:</label>
+        <input
+          type="number"
+          value={stake}
+          onChange={(e) => setStake(Number(e.target.value))}
+          style={styles.input}
         />
       </div>
 
-      {/* Buttons */}
+      <div style={styles.game}>
+        <div style={styles.goal}></div>
+
+        <div ref={keeperRef} style={styles.keeper}></div>
+
+        <div ref={ballRef} style={styles.ball}></div>
+
+        <div ref={playerRef} style={styles.player}></div>
+      </div>
+
       <div style={styles.controls}>
-        <button
-          style={styles.button}
-          onClick={() => shoot("left")}
-        >
-          Shoot Left
-        </button>
-
-        <button
-          style={styles.button}
-          onClick={() => shoot("center")}
-        >
-          Shoot Center
-        </button>
-
-        <button
-          style={styles.button}
-          onClick={() => shoot("right")}
-        >
-          Shoot Right
-        </button>
-
-        <button
-          style={styles.resetBtn}
-          onClick={resetGame}
-        >
-          Reset
-        </button>
+        <button onClick={() => shoot("left")}>Shoot Left</button>
+        <button onClick={() => shoot("center")}>Shoot Center</button>
+        <button onClick={() => shoot("right")}>Shoot Right</button>
+        <button onClick={collectPot}>Collect Pot</button>
       </div>
 
       <h2>{message}</h2>
-
-      <p style={styles.score}>
-        Goals: {goals} | Misses: {misses}
-      </p>
     </div>
   );
 }
@@ -197,56 +159,61 @@ const styles = {
     paddingTop: 20,
   },
 
+  topBar: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+
+  stakeBox: {
+    marginBottom: 10,
+  },
+
+  input: {
+    marginLeft: 10,
+    padding: 5,
+    width: 80,
+  },
+
   game: {
     position: "relative",
     width: 360,
     height: 500,
     margin: "0 auto",
-    background:
-      "linear-gradient(#1f8f3a, #16752f)",
-    border: "4px solid white",
+    background: "#1f8f3a",
+    border: "3px solid white",
     overflow: "hidden",
-    borderRadius: 12,
-    boxShadow: "0 0 20px rgba(0,0,0,0.4)",
   },
 
   goal: {
     position: "absolute",
     top: 20,
-    left: 40,
-    width: 280,
+    width: "100%",
     height: 120,
-    border: "6px solid white",
-  },
-
-  net: {
-    position: "absolute",
-    top: 20,
-    left: 40,
-    width: 280,
-    height: 120,
-    backgroundImage:
-      "linear-gradient(to right, transparent 95%, white 95%), linear-gradient(to bottom, transparent 95%, white 95%)",
-    backgroundSize: "20px 20px",
-    opacity: 0.25,
+    borderBottom: "4px solid white",
   },
 
   keeper: {
     position: "absolute",
-    top: 80,
+    top: 70,
     left: 160,
-    width: 60,
-    height: 60,
+    width: 40,
+    height: 40,
+    background: "yellow",
+    borderRadius: "50%",
     transition: "0.4s",
-    zIndex: 5,
   },
 
   player: {
     position: "absolute",
     bottom: 10,
     left: 135,
-    width: 70,
-    height: 70,
+    width: 50,
+    height: 50,
+    background: "blue",
+    borderRadius: "50%",
     transition: "0.3s",
   },
 
@@ -254,44 +221,17 @@ const styles = {
     position: "absolute",
     bottom: 40,
     left: 160,
-    width: 25,
-    height: 25,
+    width: 20,
+    height: 20,
     background: "white",
     borderRadius: "50%",
-    border: "2px solid black",
-    zIndex: 4,
   },
 
   controls: {
-    marginTop: 20,
+    marginTop: 15,
     display: "flex",
     justifyContent: "center",
     gap: 10,
     flexWrap: "wrap",
-  },
-
-  button: {
-    padding: "12px 18px",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
-    background: "#1565c0",
-    color: "white",
-  },
-
-  resetBtn: {
-    padding: "12px 18px",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
-    background: "#c62828",
-    color: "white",
-  },
-
-  score: {
-    fontSize: 20,
-    fontWeight: "bold",
   },
 };
