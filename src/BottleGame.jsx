@@ -21,14 +21,15 @@ export default function PenaltyGame() {
     if (direction === "left") targetX = 70;
     if (direction === "right") targetX = 250;
 
-    // Goalkeeper random movement
+    // Keeper random movement
     const keeperPositions = [70, 160, 250];
+
     const keeperMove =
       keeperPositions[
         Math.floor(Math.random() * keeperPositions.length)
       ];
 
-    // Move keeper
+    // Move goalkeeper
     if (keeperRef.current) {
       keeperRef.current.style.left = keeperMove + "px";
     }
@@ -38,39 +39,62 @@ export default function PenaltyGame() {
       playerRef.current.style.left = targetX - 20 + "px";
     }
 
-    // Move ball
+    // Initial ball animation
     if (ballRef.current) {
       ballRef.current.style.transition = "0.7s ease-out";
-      ballRef.current.style.bottom = "360px";
+      ballRef.current.style.bottom = "300px";
       ballRef.current.style.left = targetX + "px";
     }
 
     setTimeout(() => {
       const diff = Math.abs(targetX - keeperMove);
 
-      // Lower scoring probability
+      // Lower scoring chance
       const luckyGoal = Math.random() < 0.45;
 
+      // SAVE
       if (diff < 55 || !luckyGoal) {
+
+        // Ball moves toward keeper
+        if (ballRef.current) {
+          ballRef.current.style.transition = "0.2s";
+          ballRef.current.style.left = keeperMove + 12 + "px";
+          ballRef.current.style.bottom = "230px";
+        }
+
         setMisses((m) => m + 1);
         setMessage("🧤 SAVED!");
+
       } else {
+
+        // Ball enters goal
+        if (ballRef.current) {
+          ballRef.current.style.transition = "0.25s";
+          ballRef.current.style.bottom = "390px";
+        }
+
         setGoals((g) => g + 1);
         setMessage("⚽ GOOOOAL!");
       }
 
-      resetBall();
-      shooting.current = false;
-    }, 800);
+      setTimeout(() => {
+        resetBall();
+        shooting.current = false;
+      }, 650);
+
+    }, 700);
   };
 
   const resetBall = () => {
+
+    // Reset ball
     if (ballRef.current) {
       ballRef.current.style.transition = "none";
       ballRef.current.style.bottom = "40px";
       ballRef.current.style.left = "160px";
     }
 
+    // Reset player
     if (playerRef.current) {
       playerRef.current.style.left = "135px";
     }
@@ -93,10 +117,11 @@ export default function PenaltyGame() {
       <h1>⚽ Penalty Shootout</h1>
 
       <div style={styles.game}>
-        {/* Goal */}
+
+        {/* Goal Post */}
         <div style={styles.goal}></div>
 
-        {/* Net */}
+        {/* Goal Net */}
         <div style={styles.net}></div>
 
         {/* Goalkeeper */}
@@ -108,7 +133,10 @@ export default function PenaltyGame() {
         />
 
         {/* Ball */}
-        <div ref={ballRef} style={styles.ball}></div>
+        <div
+          ref={ballRef}
+          style={styles.ball}
+        ></div>
 
         {/* Player */}
         <img
@@ -119,27 +147,40 @@ export default function PenaltyGame() {
         />
       </div>
 
+      {/* Buttons */}
       <div style={styles.controls}>
-        <button onClick={() => shoot("left")}>
+        <button
+          style={styles.button}
+          onClick={() => shoot("left")}
+        >
           Shoot Left
         </button>
 
-        <button onClick={() => shoot("center")}>
+        <button
+          style={styles.button}
+          onClick={() => shoot("center")}
+        >
           Shoot Center
         </button>
 
-        <button onClick={() => shoot("right")}>
+        <button
+          style={styles.button}
+          onClick={() => shoot("right")}
+        >
           Shoot Right
         </button>
 
-        <button onClick={resetGame}>
+        <button
+          style={styles.resetBtn}
+          onClick={resetGame}
+        >
           Reset
         </button>
       </div>
 
       <h2>{message}</h2>
 
-      <p>
+      <p style={styles.score}>
         Goals: {goals} | Misses: {misses}
       </p>
     </div>
@@ -161,10 +202,12 @@ const styles = {
     width: 360,
     height: 500,
     margin: "0 auto",
-    background: "linear-gradient(#1f8f3a, #16752f)",
+    background:
+      "linear-gradient(#1f8f3a, #16752f)",
     border: "4px solid white",
     overflow: "hidden",
     borderRadius: 12,
+    boxShadow: "0 0 20px rgba(0,0,0,0.4)",
   },
 
   goal: {
@@ -195,6 +238,7 @@ const styles = {
     width: 60,
     height: 60,
     transition: "0.4s",
+    zIndex: 5,
   },
 
   player: {
@@ -215,6 +259,7 @@ const styles = {
     background: "white",
     borderRadius: "50%",
     border: "2px solid black",
+    zIndex: 4,
   },
 
   controls: {
@@ -223,5 +268,30 @@ const styles = {
     justifyContent: "center",
     gap: 10,
     flexWrap: "wrap",
+  },
+
+  button: {
+    padding: "12px 18px",
+    borderRadius: 8,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "bold",
+    background: "#1565c0",
+    color: "white",
+  },
+
+  resetBtn: {
+    padding: "12px 18px",
+    borderRadius: 8,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "bold",
+    background: "#c62828",
+    color: "white",
+  },
+
+  score: {
+    fontSize: 20,
+    fontWeight: "bold",
   },
 };
