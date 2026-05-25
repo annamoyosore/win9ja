@@ -1,207 +1,135 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 
-const MAP_SIZE = 10;
+const SIZE = 10; // 10x10 board
+const BASE_MINES = 10;
 
-export default function FreeFireMapGame() {
-  const [player, setPlayer] = useState({ x: 2, y: 2, hp: 100 });
-  const [ai, setAi] = useState({ x: 7, y: 7, hp: 100 });
-  const [log, setLog] = useState([]);
+function createBoard(minesCount) {
+  const totalCells = SIZE * SIZE;
+  const minePositions = new Set();
+
+  while (minePositions.size < minesCount) {
+    minePositions.add(Math.floor(Math.random() * totalCells));
+  }
+
+  return Array.from({ length: totalCells }, (_, i) => ({
+    isMine: minePositions.has(i),
+    revealed: false,
+    flagged: false,
+  }));
+}
+
+export default function MineGame() {
+  const [multiplier, setMultiplier] = useState(1);
+  const [board, setBoard] = useState([]);
   const [gameOver, setGameOver] = useState(false);
+  const [won, setWon] = useState(false);
 
-  const rand = (min, max) =>
-    Math.floor(Math.random() * (max - min + 1)) + min;
+  const minesCount = Math.min(BASE_MINES * multiplier, SIZE * SIZE - 1);
 
-  const addLog = (text) => {
-    setLog((prev) => [text, ...prev.slice(0, 8)]);
-  };
+  useEffect(() => {
+    resetGame();
+  }, [multiplier]);
 
-  // 📏 distance check
-  const distance = (a, b) =>
-    Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-
-  // 🧑 PLAYER MOVE
-  const movePlayer = (dir) => {
-    if (gameOver) return;
-
-    setPlayer((p) => {
-      let newPos = { ...p };
-
-      if (dir === "up") newPos.y = Math.max(0, p.y - 1);
-      if (dir === "down") newPos.y = Math.min(MAP_SIZE - 1, p.y + 1);
-      if (dir === "left") newPos.x = Math.max(0, p.x - 1);
-      if (dir === "right") newPos.x = Math.min(MAP_SIZE - 1, p.x + 1);
-
-      return newPos;
-    });
-
-    setTimeout(aiTurn, 300);
-  };
-
-  // 🤖 AI SMART MOVE (CHASE + DEFEND)
-  const aiTurn = () => {
-    if (gameOver) return;
-
-    setAi((a) => {
-      let newAI = { ...a };
-
-      const dx = player.x - a.x;
-      const dy = player.y - a.y;
-
-      // 🧠 AI chase logic (smarter movement)
-      if (Math.abs(dx) > Math.abs(dy)) {
-        newAI.x += dx > 0 ? 1 : -1;
-      } else {
-        newAI.y += dy > 0 ? 1 : -1;
-      }
-
-      newAI.x = Math.max(0, Math.min(MAP_SIZE - 1, newAI.x));
-      newAI.y = Math.max(0, Math.min(MAP_SIZE - 1, newAI.y));
-
-      return newAI;
-    });
-
-    setTimeout(combatCheck, 200);
-  };
-
-  // 🔫 COMBAT SYSTEM (when close)
-  const combatCheck = () => {
-    const dist = distance(player, ai);
-
-    if (dist <= 1) {
-      // 🧑 player attack
-      const playerDamage = rand(10, 20);
-
-      setAi((a) => {
-        const newHp = a.hp - playerDamage;
-        if (newHp <= 0) {
-          setGameOver(true);
-          addLog("🏆 You eliminated the AI!");
-          return { ...a, hp: 0 };
-        }
-        return { ...a, hp: newHp };
-      });
-
-      addLog(`🧑 You hit AI for ${playerDamage}`);
-
-      // 🤖 AI counterattack
-      const aiDamage = rand(8, 18);
-
-      setPlayer((p) => {
-        const newHp = p.hp - aiDamage;
-        if (newHp <= 0) {
-          setGameOver(true);
-          addLog("💀 AI eliminated you!");
-          return { ...p, hp: 0 };
-        }
-        return { ...p, hp: newHp };
-      });
-
-      addLog(`🤖 AI hits you for ${aiDamage}`);
-    }
-  };
-
-  // 🗺️ MAP RENDER
-  const renderMap = () => {
-    let grid = [];
-
-    for (let y = 0; y < MAP_SIZE; y++) {
-      let row = [];
-
-      for (let x = 0; x < MAP_SIZE; x++) {
-        let cell = "🟩";
-
-        if (player.x === x && player.y === y) cell = "🧑";
-        if (ai.x === x && ai.y === y) cell = "🤖";
-
-        row.push(
-          <span key={`${x}-${y}`} style={{ margin: 2 }}>
-            {cell}
-          </span>
-        );
-      }
-
-      grid.push(
-        <div key={y} style={{ lineHeight: "20px" }}>
-          {row}
-        </div>
-      );
-    }
-
-    return grid;
-  };
-
-  const restart = () => {
-    setPlayer({ x: 2, y: 2, hp: 100 });
-    setAi({ x: 7, y: 7, hp: 100 });
-    setLog([]);
+  const resetGame = () => {
+    setBoard(createBoard(minesCount));
     setGameOver(false);
+    setWon(false);
+  };
+
+  const revealCell = (index) => {
+    if (gameOver || won) return;
+
+    const newBoard = [...board];
+    const cell = newBoard[index];
+
+    if (cell.revealed) return;
+
+    cell.revealed = true;
+
+    if (cell.isMine) {
+      setGameOver(true);
+      revealAllMines(newBoard);
+    } else {
+      checkWin(newBoard);
+    }
+
+    setBoard(newBoard);
+  };
+
+  const revealAllMines = (b) => {
+    b.forEach((cell) => {
+      if (cell.isMine) cell.revealed = true;
+    });
+  };
+
+  const checkWin = (b) => {
+    const safeCells = b.filter((c) => !c.isMine);
+    const revealedSafe = safeCells.filter((c) => c.revealed);
+
+    if (revealedSafe.length === safeCells.length) {
+      setWon(true);
+    }
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>🔥 Free Fire Map Battle (AI Chase System)</h1>
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
+      <h2>💣 Mine Game</h2>
 
-      <div style={styles.stats}>
-        🧑 HP: {player.hp} | 🤖 HP: {ai.hp}
+      <div style={{ marginBottom: 10 }}>
+        Difficulty (1x - 4x):
+        <input
+          type="range"
+          min="1"
+          max="4"
+          step="1"
+          value={multiplier}
+          onChange={(e) => setMultiplier(Number(e.target.value))}
+        />
+        <b> {multiplier}x</b>
       </div>
 
-      <div style={styles.map}>{renderMap()}</div>
-
-      <div style={styles.controls}>
-        <button onClick={() => movePlayer("up")}>⬆️</button>
-        <div>
-          <button onClick={() => movePlayer("left")}>⬅️</button>
-          <button onClick={() => movePlayer("down")}>⬇️</button>
-          <button onClick={() => movePlayer("right")}>➡️</button>
-        </div>
+      <div style={{ marginBottom: 10 }}>
+        Mines: <b>{minesCount}</b>
       </div>
 
-      <button onClick={restart} style={styles.restart}>
-        🔄 Restart
-      </button>
+      <button onClick={resetGame}>Restart Game</button>
 
-      {gameOver && <h2 style={styles.gameOver}>Game Over</h2>}
+      {gameOver && <h3 style={{ color: "red" }}>💥 Game Over!</h3>}
+      {won && <h3 style={{ color: "green" }}>🎉 You Win!</h3>}
 
-      <div style={styles.log}>
-        {log.map((l, i) => (
-          <p key={i}>{l}</p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${SIZE}, 30px)`,
+          marginTop: 20,
+          gap: 2,
+        }}
+      >
+        {board.map((cell, i) => (
+          <div
+            key={i}
+            onClick={() => revealCell(i)}
+            style={{
+              width: 30,
+              height: 30,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              background: cell.revealed
+                ? cell.isMine
+                  ? "red"
+                  : "#ccc"
+                : "#444",
+              color: "black",
+              fontWeight: "bold",
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            {cell.revealed ? (cell.isMine ? "💣" : "") : ""}
+          </div>
         ))}
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    fontFamily: "Arial",
-    background: "#111",
-    color: "white",
-    minHeight: "100vh",
-    textAlign: "center",
-    padding: "10px",
-  },
-  title: { color: "#ff3d00" },
-  stats: { margin: "10px" },
-  map: {
-    display: "inline-block",
-    background: "#222",
-    padding: "10px",
-    borderRadius: "10px",
-  },
-  controls: { margin: "15px" },
-  restart: {
-    padding: "8px 15px",
-    marginTop: "10px",
-    background: "#444",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-  },
-  gameOver: { color: "yellow" },
-  log: {
-    marginTop: "10px",
-    fontSize: "12px",
-    maxHeight: "120px",
-    overflowY: "auto",
-  },
-};
