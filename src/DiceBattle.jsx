@@ -1,29 +1,89 @@
-import React from "react";
+import React, { useState } from "react";
 
-export default function FreeFire() {
+export default function FreeFireVsAI() {
+  const [playerHP, setPlayerHP] = useState(100);
+  const [aiHP, setAiHP] = useState(100);
+  const [log, setLog] = useState([]);
+  const [gameOver, setGameOver] = useState(false);
+
+  // 🎯 Random damage generator
+  const getDamage = (min, max) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
+
+  // 🔫 Player attack
+  const playerAttack = () => {
+    if (gameOver) return;
+
+    const damage = getDamage(10, 25);
+    const newAiHP = Math.max(aiHP - damage, 0);
+
+    setAiHP(newAiHP);
+    addLog(`🧑 You hit AI for ${damage} damage`);
+
+    if (newAiHP <= 0) {
+      setGameOver(true);
+      addLog("🏆 You Win!");
+      return;
+    }
+
+    setTimeout(aiAttack, 700);
+  };
+
+  // 🤖 AI attack
+  const aiAttack = () => {
+    const damage = getDamage(8, 20);
+    const newPlayerHP = Math.max(playerHP - damage, 0);
+
+    setPlayerHP(newPlayerHP);
+    addLog(`🤖 AI hit you for ${damage} damage`);
+
+    if (newPlayerHP <= 0) {
+      setGameOver(true);
+      addLog("💀 AI Wins!");
+    }
+  };
+
+  // 📝 Log helper
+  const addLog = (text) => {
+    setLog((prev) => [text, ...prev]);
+  };
+
+  // 🔄 Restart game
+  const restart = () => {
+    setPlayerHP(100);
+    setAiHP(100);
+    setLog([]);
+    setGameOver(false);
+  };
+
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>🔥 FREE FIRE LOBBY</h1>
-        <p style={styles.subtitle}>Welcome Survivor</p>
+      <h1 style={styles.title}>🔥 Free Fire VS AI (Logic Demo)</h1>
+
+      <div style={styles.stats}>
+        <div>🧑 Player HP: {playerHP}</div>
+        <div>🤖 AI HP: {aiHP}</div>
       </div>
 
-      <div style={styles.card}>
-        <h2>🎮 Match Options</h2>
+      <div style={styles.buttons}>
+        <button onClick={playerAttack} style={styles.button} disabled={gameOver}>
+          🔫 Attack
+        </button>
 
-        <button style={styles.button}>Start Solo Match</button>
-        <button style={styles.button}>Start Duo Match</button>
-        <button style={styles.button}>Start Squad Match</button>
+        <button onClick={restart} style={styles.buttonAlt}>
+          🔄 Restart
+        </button>
       </div>
 
-      <div style={styles.card}>
-        <h2>📶 Connection Status</h2>
-        <p style={styles.text}>Server: Africa-West</p>
-        <p style={styles.text}>Ping: 42ms (Good)</p>
-      </div>
+      {gameOver && <h2 style={styles.gameOver}>Game Over</h2>}
 
-      <div style={styles.footer}>
-        <p>⚡ Tip: Low graphics mode recommended for weak internet</p>
+      <div style={styles.logBox}>
+        <h3>Battle Log</h3>
+        {log.map((item, index) => (
+          <p key={index} style={styles.logItem}>
+            {item}
+          </p>
+        ))}
       </div>
     </div>
   );
@@ -32,47 +92,54 @@ export default function FreeFire() {
 const styles = {
   container: {
     fontFamily: "Arial",
-    background: "linear-gradient(#111, #1c1c1c)",
-    color: "white",
-    height: "100vh",
-    padding: "20px",
     textAlign: "center",
-  },
-  header: {
-    marginBottom: "20px",
+    background: "#111",
+    color: "white",
+    minHeight: "100vh",
+    padding: "20px",
   },
   title: {
     color: "#ff3d00",
-    fontSize: "28px",
   },
-  subtitle: {
-    color: "#ccc",
+  stats: {
+    margin: "20px",
+    fontSize: "18px",
   },
-  card: {
-    background: "#222",
-    padding: "15px",
-    margin: "10px auto",
-    borderRadius: "10px",
-    width: "90%",
-    maxWidth: "400px",
+  buttons: {
+    marginBottom: "20px",
   },
   button: {
-    display: "block",
-    width: "100%",
-    padding: "10px",
-    margin: "8px 0",
+    padding: "10px 20px",
+    margin: "5px",
     background: "#ff3d00",
-    border: "none",
     color: "white",
+    border: "none",
     borderRadius: "6px",
     cursor: "pointer",
   },
-  text: {
-    margin: "5px 0",
+  buttonAlt: {
+    padding: "10px 20px",
+    margin: "5px",
+    background: "#444",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
   },
-  footer: {
+  gameOver: {
+    color: "yellow",
+  },
+  logBox: {
     marginTop: "20px",
-    fontSize: "12px",
-    color: "#aaa",
+    background: "#222",
+    padding: "10px",
+    borderRadius: "10px",
+    maxWidth: "400px",
+    marginLeft: "auto",
+    marginRight: "auto",
+  },
+  logItem: {
+    fontSize: "14px",
+    textAlign: "left",
   },
 };
