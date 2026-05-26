@@ -1,39 +1,51 @@
 import React, { useState, useEffect } from "react";
 
-const SIZE = 10; // 10x10 board
+const SIZE = 10;
 const BASE_MINES = 10;
 
 function createBoard(minesCount) {
-  const totalCells = SIZE * SIZE;
-  const minePositions = new Set();
+  const total = SIZE * SIZE;
+  const mineSet = new Set();
 
-  while (minePositions.size < minesCount) {
-    minePositions.add(Math.floor(Math.random() * totalCells));
+  while (mineSet.size < minesCount) {
+    mineSet.add(Math.floor(Math.random() * total));
   }
 
-  return Array.from({ length: totalCells }, (_, i) => ({
-    isMine: minePositions.has(i),
+  return Array.from({ length: total }, (_, i) => ({
+    isMine: mineSet.has(i),
     revealed: false,
-    flagged: false,
   }));
 }
 
+// multiplier grows per safe click
+function calcMultiplier(step, difficulty) {
+  return 1 + step * (0.08 * difficulty);
+}
+
 export default function MineGame() {
-  const [multiplier, setMultiplier] = useState(1);
+  const [multiplierLevel, setMultiplierLevel] = useState(1);
+  const [stake, setStake] = useState(100);
   const [board, setBoard] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
 
-  const minesCount = Math.min(BASE_MINES * multiplier, SIZE * SIZE - 1);
+  const [step, setStep] = useState(0);
+  const [currentMultiplier, setCurrentMultiplier] = useState(1);
+  const [cashOutValue, setCashOutValue] = useState(0);
+
+  const minesCount = Math.min(BASE_MINES * multiplierLevel, SIZE * SIZE - 1);
 
   useEffect(() => {
     resetGame();
-  }, [multiplier]);
+  }, [multiplierLevel]);
 
   const resetGame = () => {
     setBoard(createBoard(minesCount));
     setGameOver(false);
     setWon(false);
+    setStep(0);
+    setCurrentMultiplier(1);
+    setCashOutValue(0);
   };
 
   const revealCell = (index) => {
@@ -48,61 +60,80 @@ export default function MineGame() {
 
     if (cell.isMine) {
       setGameOver(true);
-      revealAllMines(newBoard);
-    } else {
-      checkWin(newBoard);
+      setCashOutValue(0);
+      return;
     }
+
+    // SAFE TILE HIT → increase step
+    const newStep = step + 1;
+    setStep(newStep);
+
+    const newMultiplier = calcMultiplier(newStep, multiplierLevel);
+    setCurrentMultiplier(newMultiplier);
+
+    setCashOutValue(stake * newMultiplier);
 
     setBoard(newBoard);
   };
 
-  const revealAllMines = (b) => {
-    b.forEach((cell) => {
-      if (cell.isMine) cell.revealed = true;
-    });
-  };
-
-  const checkWin = (b) => {
-    const safeCells = b.filter((c) => !c.isMine);
-    const revealedSafe = safeCells.filter((c) => c.revealed);
-
-    if (revealedSafe.length === safeCells.length) {
-      setWon(true);
-    }
+  const cashOut = () => {
+    if (gameOver || step === 0) return;
+    setWon(true);
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h2>💣 Mine Game</h2>
+    <div style={{ padding: 20, fontFamily: "Arial", color: "#fff", background: "#111", minHeight: "100vh" }}>
+      <h2>💣 Mine Game (Stake & Multipliers)</h2>
 
-      <div style={{ marginBottom: 10 }}>
-        Difficulty (1x - 4x):
+      {/* STAKE INPUT */}
+      <div>
+        Stake:
+        <input
+          type="number"
+          value={stake}
+          onChange={(e) => setStake(Number(e.target.value))}
+          style={{ marginLeft: 10 }}
+        />
+      </div>
+
+      {/* DIFFICULTY */}
+      <div style={{ marginTop: 10 }}>
+        Difficulty:
         <input
           type="range"
           min="1"
           max="4"
-          step="1"
-          value={multiplier}
-          onChange={(e) => setMultiplier(Number(e.target.value))}
+          value={multiplierLevel}
+          onChange={(e) => setMultiplierLevel(Number(e.target.value))}
         />
-        <b> {multiplier}x</b>
+        <b> {multiplierLevel}x Mines</b>
       </div>
 
-      <div style={{ marginBottom: 10 }}>
-        Mines: <b>{minesCount}</b>
+      {/* INFO PANEL */}
+      <div style={{ marginTop: 10 }}>
+        💰 Current Multiplier: <b>{currentMultiplier.toFixed(2)}x</b> <br />
+        💵 Cashout Value: <b>${cashOutValue.toFixed(2)}</b>
       </div>
 
-      <button onClick={resetGame}>Restart Game</button>
+      {/* ACTIONS */}
+      <div style={{ marginTop: 10 }}>
+        <button onClick={resetGame}>Restart</button>
+        <button onClick={cashOut} style={{ marginLeft: 10 }}>
+          Cash Out
+        </button>
+      </div>
 
-      {gameOver && <h3 style={{ color: "red" }}>💥 Game Over!</h3>}
-      {won && <h3 style={{ color: "green" }}>🎉 You Win!</h3>}
+      {/* STATUS */}
+      {gameOver && <h3 style={{ color: "red" }}>💥 You hit a mine! Lost stake</h3>}
+      {won && <h3 style={{ color: "green" }}>🎉 Cashed out: ${cashOutValue.toFixed(2)}</h3>}
 
+      {/* BOARD */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${SIZE}, 30px)`,
-          marginTop: 20,
           gap: 2,
+          marginTop: 20,
         }}
       >
         {board.map((cell, i) => (
@@ -112,18 +143,16 @@ export default function MineGame() {
             style={{
               width: 30,
               height: 30,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
               background: cell.revealed
                 ? cell.isMine
                   ? "red"
-                  : "#ccc"
-                : "#444",
-              color: "black",
-              fontWeight: "bold",
+                  : "#3a3a3a"
+                : "#555",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               cursor: "pointer",
-              userSelect: "none",
+              fontSize: 14,
             }}
           >
             {cell.revealed ? (cell.isMine ? "💣" : "") : ""}
