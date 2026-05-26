@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const SIZE = 5; // 5x5 = 25 tiles (small board)
-const BASE_MINES = 2;
+const SIZE = 5; // 5x5 board = 25 tiles
 
 function createBoard(minesCount) {
   const total = SIZE * SIZE;
@@ -18,7 +17,7 @@ function createBoard(minesCount) {
 }
 
 function calcMultiplier(step, difficulty) {
-  return 1 + step * (0.15 * difficulty);
+  return 1 + step * (0.2 * difficulty);
 }
 
 export default function MineGame() {
@@ -33,8 +32,20 @@ export default function MineGame() {
   const [multi, setMulti] = useState(1);
   const [cashout, setCashout] = useState(0);
 
-  // up to 20 mines max
-  const minesCount = Math.min(BASE_MINES * difficulty * 2, 20);
+  // 💣 Increased mines
+  // x1 = 4 mines
+  // x2 = 8 mines
+  // x3 = 12 mines
+  // x4 = 16 mines
+
+  const mineMap = {
+    1: 4,
+    2: 8,
+    3: 12,
+    4: 16,
+  };
+
+  const minesCount = mineMap[difficulty];
 
   useEffect(() => {
     resetGame();
@@ -49,7 +60,7 @@ export default function MineGame() {
     setCashout(0);
   };
 
-  // reveal every tile
+  // reveal all tiles
   const revealAllTiles = (newBoard) => {
     const updated = newBoard.map((cell) => ({
       ...cell,
@@ -69,18 +80,15 @@ export default function MineGame() {
 
     cell.revealed = true;
 
-    // 💣 MINE HIT
+    // 💣 hit mine
     if (cell.isMine) {
       setGameOver(true);
-
-      // reveal all tiles
       revealAllTiles(newBoard);
-
       setCashout(0);
       return;
     }
 
-    // SAFE TILE
+    // ✅ safe tile
     const newStep = step + 1;
     const newMultiplier = calcMultiplier(newStep, difficulty);
 
@@ -96,8 +104,6 @@ export default function MineGame() {
     if (gameOver || step === 0) return;
 
     setWon(true);
-
-    // reveal all after cashout
     revealAllTiles(board);
   };
 
@@ -112,9 +118,9 @@ export default function MineGame() {
         textAlign: "center",
       }}
     >
-      <h2>💣 Mini Mine Game</h2>
+      <h2>💣 Mine Betting Game</h2>
 
-      {/* stake */}
+      {/* Stake */}
       <div style={{ marginBottom: 10 }}>
         Stake:
         <input
@@ -129,7 +135,7 @@ export default function MineGame() {
         />
       </div>
 
-      {/* difficulty */}
+      {/* Difficulty */}
       <div style={{ marginBottom: 15 }}>
         Difficulty:
         <input
@@ -139,10 +145,10 @@ export default function MineGame() {
           value={difficulty}
           onChange={(e) => setDifficulty(Number(e.target.value))}
         />
-        <b> {difficulty}x</b>
+        <b> x{difficulty}</b>
       </div>
 
-      {/* info */}
+      {/* Info */}
       <div style={{ marginBottom: 15 }}>
         💣 Mines: <b>{minesCount}</b>
         <br />
@@ -151,7 +157,7 @@ export default function MineGame() {
         💰 Cashout: <b>${cashout.toFixed(2)}</b>
       </div>
 
-      {/* buttons */}
+      {/* Buttons */}
       <div style={{ marginBottom: 20 }}>
         <button
           onClick={resetGame}
@@ -175,10 +181,10 @@ export default function MineGame() {
         </button>
       </div>
 
-      {/* status */}
+      {/* Status */}
       {gameOver && (
         <h3 style={{ color: "red" }}>
-          💥 Mine Hit! All tiles revealed
+          💥 You hit a mine!
         </h3>
       )}
 
@@ -188,7 +194,7 @@ export default function MineGame() {
         </h3>
       )}
 
-      {/* board */}
+      {/* Board */}
       <div
         style={{
           display: "grid",
