@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
-const SIZE = 10;
-const BASE_MINES = 10;
+const SIZE = 5; // 5x5 = 25 tiles (small board)
+const BASE_MINES = 2;
 
 function createBoard(minesCount) {
   const total = SIZE * SIZE;
@@ -17,35 +17,46 @@ function createBoard(minesCount) {
   }));
 }
 
-// multiplier grows per safe click
 function calcMultiplier(step, difficulty) {
-  return 1 + step * (0.08 * difficulty);
+  return 1 + step * (0.15 * difficulty);
 }
 
 export default function MineGame() {
-  const [multiplierLevel, setMultiplierLevel] = useState(1);
+  const [difficulty, setDifficulty] = useState(1);
   const [stake, setStake] = useState(100);
+
   const [board, setBoard] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
 
   const [step, setStep] = useState(0);
-  const [currentMultiplier, setCurrentMultiplier] = useState(1);
-  const [cashOutValue, setCashOutValue] = useState(0);
+  const [multi, setMulti] = useState(1);
+  const [cashout, setCashout] = useState(0);
 
-  const minesCount = Math.min(BASE_MINES * multiplierLevel, SIZE * SIZE - 1);
+  // up to 20 mines max
+  const minesCount = Math.min(BASE_MINES * difficulty * 2, 20);
 
   useEffect(() => {
     resetGame();
-  }, [multiplierLevel]);
+  }, [difficulty]);
 
   const resetGame = () => {
     setBoard(createBoard(minesCount));
     setGameOver(false);
     setWon(false);
     setStep(0);
-    setCurrentMultiplier(1);
-    setCashOutValue(0);
+    setMulti(1);
+    setCashout(0);
+  };
+
+  // reveal every tile
+  const revealAllTiles = (newBoard) => {
+    const updated = newBoard.map((cell) => ({
+      ...cell,
+      revealed: true,
+    }));
+
+    setBoard(updated);
   };
 
   const revealCell = (index) => {
@@ -58,82 +69,132 @@ export default function MineGame() {
 
     cell.revealed = true;
 
+    // 💣 MINE HIT
     if (cell.isMine) {
       setGameOver(true);
-      setCashOutValue(0);
+
+      // reveal all tiles
+      revealAllTiles(newBoard);
+
+      setCashout(0);
       return;
     }
 
-    // SAFE TILE HIT → increase step
+    // SAFE TILE
     const newStep = step + 1;
+    const newMultiplier = calcMultiplier(newStep, difficulty);
+
     setStep(newStep);
+    setMulti(newMultiplier);
 
-    const newMultiplier = calcMultiplier(newStep, multiplierLevel);
-    setCurrentMultiplier(newMultiplier);
-
-    setCashOutValue(stake * newMultiplier);
+    setCashout(stake * newMultiplier);
 
     setBoard(newBoard);
   };
 
-  const cashOut = () => {
+  const cashOutNow = () => {
     if (gameOver || step === 0) return;
+
     setWon(true);
+
+    // reveal all after cashout
+    revealAllTiles(board);
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial", color: "#fff", background: "#111", minHeight: "100vh" }}>
-      <h2>💣 Mine Game (Stake & Multipliers)</h2>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#111",
+        color: "white",
+        fontFamily: "Arial",
+        padding: 20,
+        textAlign: "center",
+      }}
+    >
+      <h2>💣 Mini Mine Game</h2>
 
-      {/* STAKE INPUT */}
-      <div>
+      {/* stake */}
+      <div style={{ marginBottom: 10 }}>
         Stake:
         <input
           type="number"
           value={stake}
           onChange={(e) => setStake(Number(e.target.value))}
-          style={{ marginLeft: 10 }}
+          style={{
+            marginLeft: 10,
+            padding: 5,
+            width: 100,
+          }}
         />
       </div>
 
-      {/* DIFFICULTY */}
-      <div style={{ marginTop: 10 }}>
+      {/* difficulty */}
+      <div style={{ marginBottom: 15 }}>
         Difficulty:
         <input
           type="range"
           min="1"
           max="4"
-          value={multiplierLevel}
-          onChange={(e) => setMultiplierLevel(Number(e.target.value))}
+          value={difficulty}
+          onChange={(e) => setDifficulty(Number(e.target.value))}
         />
-        <b> {multiplierLevel}x Mines</b>
+        <b> {difficulty}x</b>
       </div>
 
-      {/* INFO PANEL */}
-      <div style={{ marginTop: 10 }}>
-        💰 Current Multiplier: <b>{currentMultiplier.toFixed(2)}x</b> <br />
-        💵 Cashout Value: <b>${cashOutValue.toFixed(2)}</b>
+      {/* info */}
+      <div style={{ marginBottom: 15 }}>
+        💣 Mines: <b>{minesCount}</b>
+        <br />
+        📈 Multiplier: <b>{multi.toFixed(2)}x</b>
+        <br />
+        💰 Cashout: <b>${cashout.toFixed(2)}</b>
       </div>
 
-      {/* ACTIONS */}
-      <div style={{ marginTop: 10 }}>
-        <button onClick={resetGame}>Restart</button>
-        <button onClick={cashOut} style={{ marginLeft: 10 }}>
+      {/* buttons */}
+      <div style={{ marginBottom: 20 }}>
+        <button
+          onClick={resetGame}
+          style={{
+            padding: "8px 15px",
+            marginRight: 10,
+            cursor: "pointer",
+          }}
+        >
+          Restart
+        </button>
+
+        <button
+          onClick={cashOutNow}
+          style={{
+            padding: "8px 15px",
+            cursor: "pointer",
+          }}
+        >
           Cash Out
         </button>
       </div>
 
-      {/* STATUS */}
-      {gameOver && <h3 style={{ color: "red" }}>💥 You hit a mine! Lost stake</h3>}
-      {won && <h3 style={{ color: "green" }}>🎉 Cashed out: ${cashOutValue.toFixed(2)}</h3>}
+      {/* status */}
+      {gameOver && (
+        <h3 style={{ color: "red" }}>
+          💥 Mine Hit! All tiles revealed
+        </h3>
+      )}
 
-      {/* BOARD */}
+      {won && (
+        <h3 style={{ color: "lime" }}>
+          🎉 Cashed Out: ${cashout.toFixed(2)}
+        </h3>
+      )}
+
+      {/* board */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${SIZE}, 30px)`,
-          gap: 2,
-          marginTop: 20,
+          gridTemplateColumns: `repeat(${SIZE}, 55px)`,
+          justifyContent: "center",
+          gap: 6,
         }}
       >
         {board.map((cell, i) => (
@@ -141,21 +202,23 @@ export default function MineGame() {
             key={i}
             onClick={() => revealCell(i)}
             style={{
-              width: 30,
-              height: 30,
+              width: 55,
+              height: 55,
+              borderRadius: 10,
               background: cell.revealed
                 ? cell.isMine
-                  ? "red"
-                  : "#3a3a3a"
+                  ? "#ff2b2b"
+                  : "#2d2d2d"
                 : "#555",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              fontSize: 22,
               cursor: "pointer",
-              fontSize: 14,
+              transition: "0.2s",
             }}
           >
-            {cell.revealed ? (cell.isMine ? "💣" : "") : ""}
+            {cell.revealed ? (cell.isMine ? "💣" : "💎") : "?"}
           </div>
         ))}
       </div>
