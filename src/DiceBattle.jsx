@@ -17,7 +17,7 @@ function createBoard(minesCount) {
 }
 
 function calcMultiplier(step, difficulty) {
-  return 1 + step * (0.2 * difficulty);
+  return 1 + step * (0.25 * difficulty);
 }
 
 export default function MineGame() {
@@ -32,17 +32,17 @@ export default function MineGame() {
   const [multi, setMulti] = useState(1);
   const [cashout, setCashout] = useState(0);
 
-  // 💣 Increased mines
-  // x1 = 4 mines
-  // x2 = 8 mines
-  // x3 = 12 mines
-  // x4 = 16 mines
+  // 💣 NEW BOMB SETTINGS
+  // x1 = 8 bombs
+  // x2 = 12 bombs
+  // x3 = 16 bombs
+  // x4 = 20 bombs
 
   const mineMap = {
-    1: 4,
-    2: 8,
-    3: 12,
-    4: 16,
+    1: 8,
+    2: 12,
+    3: 16,
+    4: 20,
   };
 
   const minesCount = mineMap[difficulty];
@@ -80,7 +80,7 @@ export default function MineGame() {
 
     cell.revealed = true;
 
-    // 💣 hit mine
+    // 💥 Mine hit
     if (cell.isMine) {
       setGameOver(true);
       revealAllTiles(newBoard);
@@ -88,7 +88,7 @@ export default function MineGame() {
       return;
     }
 
-    // ✅ safe tile
+    // ✅ Safe tile
     const newStep = step + 1;
     const newMultiplier = calcMultiplier(newStep, difficulty);
 
@@ -150,11 +150,11 @@ export default function MineGame() {
 
       {/* Info */}
       <div style={{ marginBottom: 15 }}>
-        💣 Mines: <b>{minesCount}</b>
+        💣 Bombs: <b>{minesCount}</b>
         <br />
         📈 Multiplier: <b>{multi.toFixed(2)}x</b>
         <br />
-        💰 Cashout: <b>${cashout.toFixed(2)}</b>
+        💰 Cashout Value: <b>${cashout.toFixed(2)}</b>
       </div>
 
       {/* Buttons */}
@@ -184,7 +184,7 @@ export default function MineGame() {
       {/* Status */}
       {gameOver && (
         <h3 style={{ color: "red" }}>
-          💥 You hit a mine!
+          💥 BOOM! You lost your stake
         </h3>
       )}
 
@@ -210,7 +210,7 @@ export default function MineGame() {
             style={{
               width: 55,
               height: 55,
-              borderRadius: 10,
+              borderRadius: 12,
               background: cell.revealed
                 ? cell.isMine
                   ? "#ff2b2b"
@@ -219,9 +219,12 @@ export default function MineGame() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 22,
+              fontSize: 24,
               cursor: "pointer",
               transition: "0.2s",
+              boxShadow: cell.revealed
+                ? "0 0 5px rgba(255,255,255,0.2)"
+                : "none",
             }}
           >
             {cell.revealed ? (cell.isMine ? "💣" : "💎") : "?"}
